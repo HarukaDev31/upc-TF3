@@ -4,12 +4,12 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database Configuration
-    mongodb_url: str = "mongodb://localhost:27017"
+    mongodb_url: str = "mongodb://admin:password123@localhost:27017"
     mongodb_database: str = "cinemax"
     
     # Redis Configuration
     redis_host: str = "localhost"
-    redis_port: int = 6379
+    redis_port: int = 6380  # Cambiado para evitar conflicto con Redis local
     redis_password: Optional[str] = None
     redis_db: int = 0
     redis_socket_timeout: int = 5

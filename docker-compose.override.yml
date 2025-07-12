@@ -1,0 +1,31 @@
+# Configuración de desarrollo local
+# Este archivo se usa automáticamente con docker-compose.yml
+
+version: '3.8'
+
+services:
+  # FastAPI Application (desarrollo)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app  # Montar código para hot reload
+      - /app/venv  # Excluir venv del host
+    environment:
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - MONGODB_URL=mongodb://mongodb:27017/cinemax
+      - REDIS_PASSWORD=
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app"]
+
+  # MongoDB (sin autenticación para desarrollo)
+  mongodb:
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: 
+      MONGO_INITDB_ROOT_PASSWORD: 
+    command: mongod --noauth
+
+  # Redis (sin contraseña para desarrollo)
+  redis:
+    command: redis-server --appendonly yes 

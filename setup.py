@@ -59,6 +59,26 @@ def check_redis_in_wsl():
         return False
 
 
+def check_docker_in_wsl():
+    """Verifica si Docker está disponible en WSL"""
+    try:
+        result = subprocess.run(["wsl", "docker", "--version"], 
+                              capture_output=True, check=True)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
+def check_mongodb_docker():
+    """Verifica si MongoDB está corriendo en Docker"""
+    try:
+        result = subprocess.run(["wsl", "docker", "ps", "--filter", "name=mongodb", "--format", "{{.Names}}"], 
+                              capture_output=True, text=True, check=True)
+        return "mongodb" in result.stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
 def check_dependencies():
     """Verifica dependencias del sistema"""
     print("\n📋 Verificando dependencias del sistema...")
@@ -105,19 +125,34 @@ def check_dependencies():
             print("❌ Redis Server NO encontrado")
             missing.append("Redis Server")
     
-    # Verificar MongoDB
-    mongo_commands = ["mongod", "brew services list | grep mongodb"]
-    mongo_found = False
-    
-    for cmd in mongo_commands:
-        if check_command_exists(cmd.split()[0]):
-            print("✅ MongoDB encontrado")
-            mongo_found = True
-            break
-    
-    if not mongo_found:
-        print("❌ MongoDB NO encontrado")
-        missing.append("MongoDB")
+    # Verificar MongoDB con Docker en WSL
+    if platform.system() == "Windows" and check_wsl_available():
+        if check_docker_in_wsl():
+            print("✅ Docker en WSL encontrado")
+            if check_mongodb_docker():
+                print("✅ MongoDB en Docker (WSL) encontrado")
+            else:
+                print("❌ MongoDB NO está corriendo en Docker")
+                print("   💡 Tip: Inicia MongoDB con Docker: wsl docker run -d --name mongodb -p 27017:27017 mongo:latest")
+                missing.append("MongoDB en Docker")
+        else:
+            print("❌ Docker NO encontrado en WSL")
+            print("   💡 Tip: Instala Docker en WSL para MongoDB")
+            missing.append("Docker en WSL")
+    else:
+        # Verificar MongoDB nativo
+        mongo_commands = ["mongod", "brew services list | grep mongodb"]
+        mongo_found = False
+        
+        for cmd in mongo_commands:
+            if check_command_exists(cmd.split()[0]):
+                print("✅ MongoDB encontrado")
+                mongo_found = True
+                break
+        
+        if not mongo_found:
+            print("❌ MongoDB NO encontrado")
+            missing.append("MongoDB")
     
     if missing:
         print(f"\n⚠️  Dependencias faltantes: {', '.join(missing)}")
@@ -192,6 +227,7 @@ def create_env_file():
     # Configurar Redis según el sistema
     redis_host = "localhost"
     redis_config_note = ""
+    mongo_config_note = ""
     
     if platform.system() == "Windows" and check_wsl_available():
         wsl_ip = get_wsl_ip()
@@ -201,12 +237,18 @@ def create_env_file():
 # Si Redis está en WSL, usar la IP: {wsl_ip}
 # Alternativamente, usar 'localhost' si WSL2 tiene port forwarding habilitado
 """
+        mongo_config_note = f"""
+# MongoDB en Docker (WSL) Configuration
+# MongoDB está corriendo en Docker dentro de WSL
+# Puerto 27017 está mapeado desde WSL a Windows
+"""
         print(f"🔧 Configurando Redis para WSL (IP: {wsl_ip})")
+        print("🔧 Configurando MongoDB para Docker en WSL")
     
     env_content = f"""# Database Configuration
 MONGODB_URL=mongodb://localhost:27017
 MONGODB_DATABASE=cinemax
-{redis_config_note}
+{redis_config_note}{mongo_config_note}
 # Redis Configuration
 REDIS_HOST={redis_host}
 REDIS_PORT=6379

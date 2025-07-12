@@ -37,13 +37,36 @@ Sistema avanzado de venta de entradas de cine implementando Clean Architecture c
 
 ## 🛠️ Instalación
 
-### 1. Clonar el repositorio
+### Opción 1: Docker (Recomendado) 🐳
+
+**Para desarrollo rápido y fácil:**
+
+```bash
+# 1. Clonar el repositorio
+git clone <repository-url>
+cd UPC
+
+# 2. Ejecutar el script de setup automático
+./scripts/docker-setup.sh
+
+# O manualmente:
+docker-compose up -d
+```
+
+**Para desarrollo con hot reload:**
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+```
+
+### Opción 2: Instalación Manual
+
+#### 1. Clonar el repositorio
 ```bash
 git clone <repository-url>
 cd UPC
 ```
 
-### 2. Crear entorno virtual
+#### 2. Crear entorno virtual
 ```bash
 python -m venv venv
 
@@ -54,12 +77,12 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### 3. Instalar dependencias
+#### 3. Instalar dependencias
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configurar variables de entorno
+#### 4. Configurar variables de entorno
 ```bash
 # Crear archivo .env basado en .env.example
 cp .env.example .env
@@ -67,9 +90,9 @@ cp .env.example .env
 # Editar .env con tus configuraciones
 ```
 
-### 5. Iniciar servicios de base de datos
+#### 5. Iniciar servicios de base de datos
 
-#### Redis
+##### Redis
 
 **Para Windows (Recomendado: usar WSL)**
 ```bash
@@ -132,7 +155,19 @@ wsl hostname -I
 telnet [WSL_IP] 6379
 ```
 
-#### MongoDB
+##### MongoDB con Docker (Recomendado)
+```bash
+# Instalar MongoDB con Docker
+docker run -d \
+  --name mongodb \
+  -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=admin \
+  -e MONGO_INITDB_ROOT_PASSWORD=password123 \
+  -v mongodb_data:/data/db \
+  mongo:7.0
+```
+
+##### MongoDB Nativo
 ```bash
 # Windows
 # Descargar desde https://www.mongodb.com/try/download/community
@@ -149,17 +184,45 @@ brew services start mongodb-community
 
 ## 🚀 Ejecución
 
-### Desarrollo
+### Con Docker (Recomendado)
+
+**Desarrollo:**
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+```
+
+**Producción:**
+```bash
+docker-compose up -d
+```
+
+**Ver logs:**
+```bash
+docker-compose logs -f api
+```
+
+### Sin Docker
+
+**Desarrollo:**
 ```bash
 python main.py
 ```
 
-### Producción
+**Producción:**
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-El servidor estará disponible en: http://localhost:8000
+### Acceso a los servicios
+
+Una vez ejecutando, los servicios estarán disponibles en:
+
+- **🎬 API Principal**: http://localhost:8000
+- **📚 Documentación**: http://localhost:8000/docs
+- **🗄️ MongoDB Express**: http://localhost:8081 (admin/admin123)
+- **🔴 Redis Commander**: http://localhost:8082 (admin/admin123)
+- **📊 Grafana**: http://localhost:3000 (admin/admin123)
+- **📈 Prometheus**: http://localhost:9090
 
 ## 📚 Documentación de API
 
@@ -385,96 +448,93 @@ Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
 
 ## 🔮 Roadmap
 
+- [x] ✅ Containerización con Docker
+- [x] ✅ Monitoring con Prometheus + Grafana
 - [ ] Implementación completa del algoritmo de compra
 - [ ] Sistema de autenticación JWT
 - [ ] WebSockets para notificaciones en tiempo real
 - [ ] Dashboard de administración
 - [ ] Integración con gateways de pago reales
-- [ ] Containerización con Docker
 - [ ] CI/CD con GitHub Actions
-- [ ] Monitoring con Prometheus + Grafana
+- [ ] Tests automatizados
+- [ ] Despliegue en Kubernetes
 
-## 🛠️ Troubleshooting WSL + Redis
+## 🛠️ Troubleshooting
 
-### Problema: No se puede conectar a Redis en WSL
-**Solución 1: Verificar que Redis esté corriendo**
+### Docker
+
+**Problema: Contenedores no inician**
 ```bash
-# Entrar a WSL
-wsl
+# Verificar logs
+docker-compose logs
 
-# Verificar estado de Redis
-sudo systemctl status redis-server
+# Reconstruir contenedores
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+**Problema: Puerto ya en uso**
+```bash
+# Verificar qué está usando el puerto
+sudo lsof -i :8000
+
+# Cambiar puerto en docker-compose.yml
+ports:
+  - "8001:8000"  # Cambiar 8000 por 8001
+```
+
+**Problema: Permisos de volúmenes**
+```bash
+# En Linux, cambiar permisos
+sudo chown -R $USER:$USER .
+
+# O usar sudo para docker-compose
+sudo docker-compose up -d
+```
+
+### WSL + Redis (Solo para instalación manual)
+
+**Problema: No se puede conectar a Redis en WSL**
+```bash
+# Verificar que Redis esté corriendo
+wsl sudo systemctl status redis-server
 
 # Si no está activo, iniciarlo
-sudo systemctl start redis-server
+wsl sudo systemctl start redis-server
 ```
 
-**Solución 2: Verificar configuración de bind**
-```bash
-# En WSL, editar configuración de Redis
-sudo nano /etc/redis/redis.conf
-
-# Buscar la línea que dice:
-# bind 127.0.0.1 ::1
-
-# Cambiarla por (para permitir conexiones externas):
-bind 0.0.0.0
-
-# Reiniciar Redis
-sudo systemctl restart redis-server
-```
-
-**Solución 3: Usar localhost en lugar de IP**
-```bash
-# En tu archivo .env, cambiar:
-REDIS_HOST=localhost
-# En lugar de usar la IP de WSL
-```
-
-**Solución 4: Verificar firewall de Windows**
-```powershell
-# En PowerShell como administrador
-New-NetFirewallRule -DisplayName "WSL Redis" -Direction Inbound -Protocol TCP -LocalPort 6379 -Action Allow
-```
-
-### Problema: WSL no se detecta en el setup
-**Solución:**
-```bash
-# Verificar que WSL esté instalado
-wsl --list --verbose
-
-# Si no hay distribuciones, instalar:
-wsl --install
-
-# Actualizar WSL
-wsl --update
-```
-
-### Problema: IP de WSL cambia constantemente
-**Solución: Usar configuración estática**
+**Problema: IP de WSL cambia constantemente**
 ```bash
 # En archivo .env, usar siempre:
 REDIS_HOST=localhost
+```
 
-# WSL2 debería hacer port forwarding automáticamente
+### MongoDB
+
+**Problema: MongoDB no acepta conexiones**
+```bash
+# Verificar que MongoDB esté corriendo
+docker-compose logs mongodb
+
+# Reiniciar MongoDB
+docker-compose restart mongodb
 ```
 
 ### Comandos útiles para diagnóstico
 ```bash
-# Obtener IP de WSL
-wsl hostname -I
+# Ver estado de todos los contenedores
+docker-compose ps
 
-# Probar conexión a Redis desde WSL
-wsl redis-cli ping
+# Ver logs de un servicio específico
+docker-compose logs -f api
 
-# Probar conexión a Redis desde Windows
-telnet [WSL_IP] 6379
+# Entrar a un contenedor
+docker-compose exec api bash
 
-# Ver logs de Redis
-wsl sudo journalctl -u redis-server -f
-
-# Verificar puertos abiertos en WSL
-wsl ss -tlnp | grep 6379
+# Verificar conectividad entre contenedores
+docker-compose exec api ping mongodb
+docker-compose exec api ping redis
 ```
 
 ---

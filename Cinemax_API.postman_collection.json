@@ -1,0 +1,325 @@
+{
+	"info": {
+		"_postman_id": "cinemax-api-collection",
+		"name": "Cinemax API - Sistema de Cine",
+		"description": "Colección completa de endpoints para el Sistema de Cine con FastAPI, Redis y MongoDB",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "cinemax-api"
+	},
+	"item": [
+		{
+			"name": "🏠 Endpoints Básicos",
+			"item": [
+				{
+					"name": "Bienvenida",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								""
+							]
+						},
+						"description": "Endpoint de bienvenida que devuelve información básica de la API"
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Verifica el estado de salud de la API y sus servicios (Redis, MongoDB)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints básicos para verificar el estado de la API"
+		},
+		{
+			"name": "🎬 Gestión de Películas",
+			"item": [
+				{
+					"name": "Listar Películas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/peliculas?limite=20&offset=0",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"peliculas"
+							],
+							"query": [
+								{
+									"key": "limite",
+									"value": "20",
+									"description": "Número máximo de películas a devolver"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Número de películas a saltar (para paginación)"
+								}
+							]
+						},
+						"description": "Obtiene la lista de películas disponibles con paginación"
+					},
+					"response": []
+				},
+				{
+					"name": "Funciones de Película",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/peliculas/{{pelicula_id}}/funciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"peliculas",
+								"{{pelicula_id}}",
+								"funciones"
+							]
+						},
+						"description": "Obtiene todas las funciones disponibles para una película específica"
+					},
+					"response": []
+				},
+				{
+					"name": "Buscar Películas",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"texto\": \"Avengers\",\n  \"genero\": \"accion\",\n  \"fecha\": \"2024-12-20\",\n  \"limite\": 10\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/buscar-peliculas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"buscar-peliculas"
+							]
+						},
+						"description": "Busca películas por texto, género, fecha y otros criterios"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para gestionar y consultar películas"
+		},
+		{
+			"name": "🎭 Gestión de Funciones",
+			"item": [
+				{
+					"name": "Asientos de Función",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/funciones/{{funcion_id}}/asientos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"funciones",
+								"{{funcion_id}}",
+								"asientos"
+							]
+						},
+						"description": "Obtiene el mapa de asientos de una función específica con su estado de ocupación"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para gestionar funciones y asientos"
+		},
+		{
+			"name": "🎫 Compra de Entradas",
+			"item": [
+				{
+					"name": "Comprar Entrada",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cliente_id\": \"cliente_001\",\n  \"pelicula_id\": \"pel_001\",\n  \"funcion_id\": \"fun_001\",\n  \"asientos\": [\"A5\", \"A6\"],\n  \"metodo_pago\": \"tarjeta\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/comprar-entrada",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"comprar-entrada"
+							]
+						},
+						"description": "Endpoint principal para comprar entradas. Implementa el algoritmo optimizado de compra"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para el proceso de compra de entradas"
+		},
+		{
+			"name": "📊 Métricas y Analytics",
+			"item": [
+				{
+					"name": "Ranking de Películas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/metricas/ranking-peliculas?limite=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"metricas",
+								"ranking-peliculas"
+							],
+							"query": [
+								{
+									"key": "limite",
+									"value": "10",
+									"description": "Número de películas en el ranking"
+								}
+							]
+						},
+						"description": "Obtiene el ranking de películas más vendidas"
+					},
+					"response": []
+				},
+				{
+					"name": "Ocupación de Sala",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/metricas/ocupacion/{{funcion_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"metricas",
+								"ocupacion",
+								"{{funcion_id}}"
+							]
+						},
+						"description": "Obtiene estadísticas de ocupación de una sala específica"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para métricas, analytics y reportes"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Script de pre-request para logging",
+					"console.log('Ejecutando: ' + pm.request.name);"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Script de test para validaciones básicas",
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"pm.test('Response time is less than 2000ms', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+					"});",
+					"",
+					"pm.test('Response has required headers', function () {",
+					"    pm.response.to.have.header('Content-Type');",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "pelicula_id",
+			"value": "pel_001",
+			"type": "string"
+		},
+		{
+			"key": "funcion_id",
+			"value": "fun_001",
+			"type": "string"
+		},
+		{
+			"key": "cliente_id",
+			"value": "cliente_001",
+			"type": "string"
+		}
+	]
+} 

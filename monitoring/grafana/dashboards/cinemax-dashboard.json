@@ -1,0 +1,85 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Sistema de Cine - Dashboard",
+    "tags": ["cinema", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Estado de Servicios",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"cinemax-api\"}",
+            "legendFormat": "API"
+          },
+          {
+            "expr": "up{job=\"mongodb\"}",
+            "legendFormat": "MongoDB"
+          },
+          {
+            "expr": "up{job=\"redis\"}",
+            "legendFormat": "Redis"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Requests por Minuto",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{endpoint}}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Latencia de Respuesta",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Conexiones Activas",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "mongodb_connections_current",
+            "legendFormat": "MongoDB"
+          },
+          {
+            "expr": "redis_connected_clients",
+            "legendFormat": "Redis"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s"
+  }
+} 
