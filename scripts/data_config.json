@@ -1,0 +1,47 @@
+{
+  "configuraciones": {
+    "pequeno": {
+      "descripcion": "Datos pequeños para desarrollo local",
+      "salas": 10,
+      "peliculas": 100,
+      "funciones": 1000,
+      "clientes": 1000,
+      "transacciones": 5000,
+      "tiempo_estimado": "2-5 minutos"
+    },
+    "mediano": {
+      "descripcion": "Datos medianos para pruebas de integración",
+      "salas": 100,
+      "peliculas": 1000,
+      "funciones": 10000,
+      "clientes": 10000,
+      "transacciones": 50000,
+      "tiempo_estimado": "10-20 minutos"
+    },
+    "grande": {
+      "descripcion": "Datos grandes para pruebas de rendimiento",
+      "salas": 1000,
+      "peliculas": 50000,
+      "funciones": 1000000,
+      "clientes": 100000,
+      "transacciones": 500000,
+      "tiempo_estimado": "30-60 minutos"
+    },
+    "masivo": {
+      "descripcion": "Datos masivos para pruebas de estrés",
+      "salas": 5000,
+      "peliculas": 200000,
+      "funciones": 5000000,
+      "clientes": 500000,
+      "transacciones": 2000000,
+      "tiempo_estimado": "2-4 horas"
+    }
+  },
+  "configuracion_actual": "grande",
+  "opciones_avanzadas": {
+    "batch_size": 10000,
+    "memory_limit": "2GB",
+    "timeout": 3600,
+    "retry_attempts": 3
+  }
+} 
