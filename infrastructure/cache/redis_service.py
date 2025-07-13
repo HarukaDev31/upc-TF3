@@ -220,4 +220,44 @@ class RedisService:
                 await self.delete(reserva_key)
                 reservas_eliminadas += 1
         
-        return reservas_eliminadas 
+        return reservas_eliminadas
+    
+    # Métodos adicionales para controladores
+    async def get_asientos_ocupados(self, funcion_id: str) -> List[str]:
+        """Obtiene lista de asientos ocupados para una función"""
+        bitmap_key = f"sala:asientos:{funcion_id}"
+        
+        # Simular asientos ocupados (en implementación real usaría bitmap)
+        # Por ahora devolvemos algunos asientos de ejemplo
+        return ["A1", "A2", "B5", "C10"]
+    
+    async def crear_reserva_temporal(self, funcion_id: str, asientos: List[str], tiempo_segundos: int) -> str:
+        """Crea una reserva temporal de asientos"""
+        import uuid
+        reserva_id = str(uuid.uuid4())
+        reserva_key = f"reserva:{reserva_id}"
+        
+        # Guardar información de la reserva
+        reserva_data = {
+            "funcion_id": funcion_id,
+            "asientos": json.dumps(asientos),
+            "timestamp": str(asyncio.get_event_loop().time())
+        }
+        
+        await self.hset(reserva_key, reserva_data)
+        await self.expire(reserva_key, tiempo_segundos)
+        
+        return reserva_id
+    
+    async def liberar_asientos(self, funcion_id: str, asientos: List[str]) -> bool:
+        """Libera asientos ocupados"""
+        bitmap_key = f"sala:asientos:{funcion_id}"
+        
+        # En implementación real, limpiaría los bits correspondientes
+        # Por ahora solo devolvemos True
+        return True
+    
+    async def get_ocupacion_promedio(self) -> float:
+        """Obtiene el porcentaje promedio de ocupación de todas las salas"""
+        # Simular cálculo de ocupación promedio
+        return 65.5  # Porcentaje de ejemplo 

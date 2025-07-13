@@ -42,7 +42,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # FastAPI Application
+  # FastAPI Application (incluye WebSocket)
   api:
     build:
       context: .
@@ -50,7 +50,8 @@ services:
     container_name: cinemax_api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8000:8000"  # API Principal
+      - "8001:8001"  # WebSocket Service
     environment:
       - MONGODB_URL=mongodb://admin:password123@mongodb:27017/cinemax?authSource=admin
       - REDIS_HOST=redis
@@ -68,6 +69,8 @@ services:
       - METRICS_PORT=8000
       - REDIS_POOL_MAX_CONNECTIONS=50
       - MONGODB_MAX_CONNECTIONS=100
+      - WEBSOCKET_PORT=8001
+      - WEBSOCKET_HOST=0.0.0.0
     depends_on:
       mongodb:
         condition: service_healthy

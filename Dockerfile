@@ -21,8 +21,12 @@ COPY . .
 # Crear directorio para logs
 RUN mkdir -p /app/logs
 
-# Exponer puerto
-EXPOSE 8000
+# Exponer puertos
+EXPOSE 8000 8001
+
+# Script de inicio
+COPY scripts/start_services.sh /app/start_services.sh
+RUN chmod +x /app/start_services.sh
 
 # Comando de inicio
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
+CMD ["/app/start_services.sh"] 

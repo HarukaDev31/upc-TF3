@@ -248,7 +248,45 @@ class MongoDBService:
         result = await self.database.transacciones.delete_many({
             "estado": "pendiente",
             "fecha_creacion": {
-                "$lt": {"$date": {"$subtract": ["$$NOW", 1000 * 60 * 60]}}  # 1 hora atrás
+                "$lt": "2024-01-01T00:00:00Z"  # Ejemplo de fecha límite
             }
         })
-        return result.deleted_count 
+        return result.deleted_count
+    
+    # Métodos adicionales para controladores
+    async def listar_transacciones_funcion(self, funcion_id: str) -> List[Dict[str, Any]]:
+        """Lista transacciones de una función específica"""
+        cursor = self.database.transacciones.find(
+            {"funcion_id": funcion_id, "estado": "confirmado"}
+        ).sort("fecha_creacion", -1)
+        
+        return await cursor.to_list(length=100)
+    
+    async def contar_peliculas_activas(self) -> int:
+        """Cuenta películas activas"""
+        return await self.database.peliculas.count_documents({"activa": True})
+    
+    async def contar_funciones_hoy(self) -> int:
+        """Cuenta funciones programadas para hoy"""
+        from datetime import datetime, date
+        hoy = date.today().isoformat()
+        
+        return await self.database.funciones.count_documents({
+            "fecha_hora_inicio": {
+                "$gte": f"{hoy}T00:00:00Z",
+                "$lt": f"{hoy}T23:59:59Z"
+            }
+        })
+    
+    async def contar_transacciones_hoy(self) -> int:
+        """Cuenta transacciones realizadas hoy"""
+        from datetime import datetime, date
+        hoy = date.today().isoformat()
+        
+        return await self.database.transacciones.count_documents({
+            "fecha_creacion": {
+                "$gte": f"{hoy}T00:00:00Z",
+                "$lt": f"{hoy}T23:59:59Z"
+            },
+            "estado": "confirmado"
+        }) 

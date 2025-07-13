@@ -4,7 +4,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database Configuration
-    mongodb_url: str = "mongodb://admin:password123@localhost:27017"
+    mongodb_url: str = "mongodb://admin:password123@localhost:27017/cinemax?authSource=admin"
     mongodb_database: str = "cinemax"
     
     # Redis Configuration

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente WebSocket - Selección de Asientos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .seat-map {
+            display: grid;
+            grid-template-columns: repeat(15, 30px);
+            gap: 2px;
+            margin: 20px 0;
+        }
+        .seat {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .seat:hover {
+            background-color: #e0e0e0;
+        }
+        .seat.selected {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .seat.occupied {
+            background-color: #f44336;
+            color: white;
+            cursor: not-allowed;
+        }
+        .seat.temp-selected {
+            background-color: #FF9800;
+            color: white;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary { background-color: #2196F3; color: white; }
+        .btn-success { background-color: #4CAF50; color: white; }
+        .btn-danger { background-color: #f44336; color: white; }
+        .btn-warning { background-color: #FF9800; color: white; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.connected { background-color: #d4edda; color: #155724; }
+        .status.disconnected { background-color: #f8d7da; color: #721c24; }
+        .status.connecting { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>🎬 Cliente WebSocket - Selección de Asientos</h1>
+    
+    <div class="container">
+        <div class="panel">
+            <h2>🔌 Conexión WebSocket</h2>
+            <div class="controls">
+                <input type="text" id="funcionId" value="fun_001" placeholder="ID de función">
+                <button class="btn-primary" onclick="connect()">Conectar</button>
+                <button class="btn-danger" onclick="disconnect()">Desconectar</button>
+            </div>
+            <div id="status" class="status disconnected">Desconectado</div>
+            
+            <h3>📨 Mensajes</h3>
+            <div class="controls">
+                <button class="btn-success" onclick="selectSeats()">Seleccionar Asientos</button>
+                <button class="btn-warning" onclick="deselectSeats()">Deseleccionar Asientos</button>
+                <button class="btn-primary" onclick="clearLog()">Limpiar Log</button>
+            </div>
+            <div id="log" class="log"></div>
+        </div>
+        
+        <div class="panel">
+            <h2>🎭 Mapa de Asientos</h2>
+            <div class="seat-map" id="seatMap"></div>
+            <div class="controls">
+                <p><strong>Leyenda:</strong></p>
+                <p>🟢 Verde: Seleccionado por ti</p>
+                <p>🟠 Naranja: Seleccionado por otro usuario</p>
+                <p>🔴 Rojo: Ocupado</p>
+                <p>⚪ Blanco: Disponible</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let selectedSeats = [];
+        let tempSelectedSeats = [];
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateStatus(status, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = status;
+            statusDiv.className = `status ${className}`;
+        }
+        
+        function createSeatMap() {
+            const seatMap = document.getElementById('seatMap');
+            seatMap.innerHTML = '';
+            
+            const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            const seatsPerRow = 15;
+            
+            rows.forEach(row => {
+                for (let i = 1; i <= seatsPerRow; i++) {
+                    const seatCode = `${row}${i}`;
+                    const seat = document.createElement('div');
+                    seat.className = 'seat';
+                    seat.textContent = seatCode;
+                    seat.onclick = () => toggleSeat(seatCode);
+                    seatMap.appendChild(seat);
+                }
+            });
+        }
+        
+        function toggleSeat(seatCode) {
+            const index = selectedSeats.indexOf(seatCode);
+            if (index > -1) {
+                selectedSeats.splice(index, 1);
+            } else {
+                selectedSeats.push(seatCode);
+            }
+            updateSeatDisplay();
+        }
+        
+        function updateSeatDisplay() {
+            const seats = document.querySelectorAll('.seat');
+            seats.forEach(seat => {
+                const seatCode = seat.textContent;
+                seat.className = 'seat';
+                
+                if (selectedSeats.includes(seatCode)) {
+                    seat.classList.add('selected');
+                } else if (tempSelectedSeats.includes(seatCode)) {
+                    seat.classList.add('temp-selected');
+                } else if (seatCode === 'A1' || seatCode === 'A2' || seatCode === 'B5') {
+                    seat.classList.add('occupied');
+                }
+            });
+        }
+        
+        function connect() {
+            const funcionId = document.getElementById('funcionId').value;
+            if (!funcionId) {
+                alert('Por favor ingresa un ID de función');
+                return;
+            }
+            
+            const wsUrl = `ws://localhost:8000/ws/funciones/${funcionId}/asientos`;
+            log(`Conectando a: ${wsUrl}`);
+            updateStatus('Conectando...', 'connecting');
+            
+            websocket = new WebSocket(wsUrl);
+            
+            websocket.onopen = function(event) {
+                log('✅ Conexión establecida');
+                updateStatus('Conectado', 'connected');
+            };
+            
+            websocket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                log(`📨 Recibido: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.type === 'seat_selected') {
+                    // Actualizar asientos seleccionados por otros usuarios
+                    tempSelectedSeats = tempSelectedSeats.concat(data.asientos);
+                    updateSeatDisplay();
+                } else if (data.type === 'seat_deselected') {
+                    // Remover asientos deseleccionados por otros usuarios
+                    data.asientos.forEach(seat => {
+                        const index = tempSelectedSeats.indexOf(seat);
+                        if (index > -1) {
+                            tempSelectedSeats.splice(index, 1);
+                        }
+                    });
+                    updateSeatDisplay();
+                } else if (data.type === 'selection_expired') {
+                    log(`⏰ Selección expirada para usuario: ${data.user_id}`);
+                }
+            };
+            
+            websocket.onclose = function(event) {
+                log('❌ Conexión cerrada');
+                updateStatus('Desconectado', 'disconnected');
+                websocket = null;
+            };
+            
+            websocket.onerror = function(error) {
+                log('💥 Error de WebSocket: ' + error);
+                updateStatus('Error', 'disconnected');
+            };
+        }
+        
+        function disconnect() {
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+        }
+        
+        function selectSeats() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                alert('No hay conexión WebSocket activa');
+                return;
+            }
+            
+            if (selectedSeats.length === 0) {
+                alert('Por favor selecciona al menos un asiento');
+                return;
+            }
+            
+            const message = {
+                action: 'select',
+                asientos: selectedSeats
+            };
+            
+            websocket.send(JSON.stringify(message));
+            log(`📤 Enviando selección: ${JSON.stringify(message)}`);
+        }
+        
+        function deselectSeats() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                alert('No hay conexión WebSocket activa');
+                return;
+            }
+            
+            if (selectedSeats.length === 0) {
+                alert('Por favor selecciona al menos un asiento');
+                return;
+            }
+            
+            const message = {
+                action: 'deselect',
+                asientos: selectedSeats
+            };
+            
+            websocket.send(JSON.stringify(message));
+            log(`📤 Enviando deselección: ${JSON.stringify(message)}`);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // Inicializar
+        createSeatMap();
+        log('🚀 Cliente WebSocket iniciado');
+        log('💡 Conecta a una función y selecciona asientos para probar');
+    </script>
+</body>
+</html> 
