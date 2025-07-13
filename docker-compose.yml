@@ -50,8 +50,7 @@ services:
     container_name: cinemax_api
     restart: unless-stopped
     ports:
-      - "8000:8000"  # API Principal
-      - "8001:8001"  # WebSocket Service
+      - "8000:8000"  # API Principal (incluye WebSocket)
     environment:
       - MONGODB_URL=mongodb://admin:password123@mongodb:27017/cinemax?authSource=admin
       - REDIS_HOST=redis

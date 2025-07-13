@@ -13,6 +13,8 @@ from controllers.funciones_controller import router as funciones_router
 from controllers.transacciones_controller import router as transacciones_router
 from controllers.metricas_controller import router as metricas_router
 from controllers.websocket_controller import router as websocket_router
+from controllers.usuarios_controller import router as usuarios_router
+from controllers.selecciones_controller import router as selecciones_router
 
 
 # Servicios globales - Inicializar como None por ahora
@@ -91,6 +93,8 @@ app.include_router(funciones_router)
 app.include_router(transacciones_router)
 app.include_router(metricas_router)
 app.include_router(websocket_router)
+app.include_router(usuarios_router)
+app.include_router(selecciones_router)
 
 
 # Endpoints principales

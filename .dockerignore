@@ -72,4 +72,4 @@ monitoring/
 
 # Scripts de desarrollo
 setup.py
-scripts/ 
+# scripts/  # Comentado para permitir que se incluya en Docker 

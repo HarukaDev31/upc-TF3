@@ -76,11 +76,16 @@ class WebSocketService:
             del self.active_connections[client_id]
             
         # Remover de todas las salas
+        rooms_to_remove = []
         for room_id in list(self.room_connections.keys()):
             if client_id in self.room_connections[room_id]:
                 self.room_connections[room_id].remove(client_id)
                 if not self.room_connections[room_id]:
-                    del self.room_connections[room_id]
+                    rooms_to_remove.append(room_id)
+        
+        # Remover salas vacías
+        for room_id in rooms_to_remove:
+            del self.room_connections[room_id]
                     
         # Limpiar selecciones temporales del cliente
         await self.clear_client_selections(client_id)
@@ -108,12 +113,16 @@ class WebSocketService:
                 await self.active_connections[client_id].send_text(message)
             except Exception as e:
                 logger.error(f"Error enviando mensaje a {client_id}: {e}")
-                await self.disconnect(client_id)
+                # No llamar disconnect aquí para evitar recursión
+                if client_id in self.active_connections:
+                    del self.active_connections[client_id]
 
     async def broadcast_to_room(self, message: str, room_id: str, exclude_client: Optional[str] = None):
         """Enviar mensaje a todos los clientes en una sala"""
         if room_id in self.room_connections:
-            for client_id in self.room_connections[room_id]:
+            # Crear una copia de la lista para evitar errores de iteración
+            clients = list(self.room_connections[room_id])
+            for client_id in clients:
                 if client_id != exclude_client:
                     await self.send_personal_message(message, client_id)
 
@@ -259,8 +268,62 @@ class WebSocketService:
                         await self.redis_client.delete(key)
                         logger.info(f"Selección expirada eliminada: {key}")
 
+    async def connect_for_function(self, websocket: WebSocket, funcion_id: str, user_id: str):
+        """Conectar un cliente WebSocket para una función específica"""
+        await websocket.accept()
+        self.active_connections[user_id] = websocket
+        
+        # Unir al cliente a la sala de la función
+        await self.join_room(user_id, funcion_id)
+        logger.info(f"Cliente {user_id} conectado a función {funcion_id}")
+
+    def disconnect_from_function(self, funcion_id: str, user_id: str):
+        """Desconectar un cliente WebSocket de una función específica"""
+        if user_id in self.active_connections:
+            del self.active_connections[user_id]
+        
+        # Remover de la sala de la función
+        if funcion_id in self.room_connections and user_id in self.room_connections[funcion_id]:
+            self.room_connections[funcion_id].remove(user_id)
+            if not self.room_connections[funcion_id]:
+                del self.room_connections[funcion_id]
+        
+        logger.info(f"Cliente {user_id} desconectado de función {funcion_id}")
+
+    async def handle_seat_selection(self, funcion_id: str, user_id: str, asientos: list, action: str):
+        """Manejar selección/deselección de asientos"""
+        for asiento in asientos:
+            if action == "select":
+                await self.select_seat(user_id, funcion_id, asiento, {"user_id": user_id})
+            elif action == "deselect":
+                await self.release_seat(user_id, funcion_id, asiento)
+        
+        logger.info(f"Usuario {user_id} {action} asientos {asientos} en función {funcion_id}")
+
+    async def get_active_selections(self, funcion_id: str):
+        """Obtener selecciones activas para una función"""
+        selections = []
+        pattern = f"selection:{funcion_id}:*"
+        
+        if self.redis_client:
+            try:
+                keys = await self.redis_client.keys(pattern)
+                for key in keys:
+                    selection_data = await self.redis_client.get(key)
+                    if selection_data:
+                        data = json.loads(selection_data)
+                        # Verificar si no ha expirado
+                        expires_at = datetime.fromisoformat(data.get("expires_at", "1970-01-01T00:00:00"))
+                        if expires_at > datetime.now():
+                            selections.append(data)
+            except Exception as e:
+                logger.error(f"Error obteniendo selecciones activas: {e}")
+        
+        return selections
+
 # Instancia global del servicio
 websocket_service = WebSocketService()
+manager = websocket_service  # Alias para compatibilidad con el controlador
 
 # Crear aplicación FastAPI
 app = FastAPI(

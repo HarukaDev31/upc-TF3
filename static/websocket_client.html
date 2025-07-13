@@ -89,10 +89,45 @@
         .status.connected { background-color: #d4edda; color: #155724; }
         .status.disconnected { background-color: #f8d7da; color: #721c24; }
         .status.connecting { background-color: #fff3cd; color: #856404; }
+        .auth-section {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .user-info {
+            background-color: #f3e5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        input[type="text"], input[type="password"], input[type="email"] {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
     </style>
 </head>
 <body>
     <h1>🎬 Cliente WebSocket - Selección de Asientos</h1>
+    
+    <div class="auth-section">
+        <h2>🔐 Autenticación JWT</h2>
+        <div class="controls">
+            <input type="email" id="email" placeholder="Email" value="usuario@ejemplo.com">
+            <input type="password" id="password" placeholder="Contraseña" value="password123">
+            <button class="btn-primary" onclick="login()">Login</button>
+            <button class="btn-success" onclick="register()">Registro</button>
+            <button class="btn-warning" onclick="getCurrentUser()">Obtener Usuario</button>
+        </div>
+        <div id="userInfo" class="user-info" style="display: none;">
+            <strong>Usuario:</strong> <span id="userName"></span><br>
+            <strong>Email:</strong> <span id="userEmail"></span><br>
+            <strong>Token:</strong> <span id="userToken"></span>
+        </div>
+    </div>
     
     <div class="container">
         <div class="panel">
@@ -130,6 +165,8 @@
         let websocket = null;
         let selectedSeats = [];
         let tempSelectedSeats = [];
+        let currentToken = null;
+        let currentUser = null;
         
         function log(message) {
             const logDiv = document.getElementById('log');
@@ -142,6 +179,118 @@
             const statusDiv = document.getElementById('status');
             statusDiv.textContent = status;
             statusDiv.className = `status ${className}`;
+        }
+        
+        function showUserInfo(user, token) {
+            currentUser = user;
+            currentToken = token;
+            
+            document.getElementById('userName').textContent = `${user.nombre} ${user.apellido}`;
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userToken').textContent = token.substring(0, 50) + '...';
+            document.getElementById('userInfo').style.display = 'block';
+            
+            log(`✅ Usuario autenticado: ${user.nombre} ${user.apellido}`);
+        }
+        
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                alert('Por favor ingresa email y contraseña');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/v1/usuarios/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showUserInfo(data.usuario, data.token.access_token);
+                    log('✅ Login exitoso');
+                } else {
+                    log(`❌ Error en login: ${data.detail}`);
+                    alert(`Error: ${data.detail}`);
+                }
+            } catch (error) {
+                log(`❌ Error de conexión: ${error.message}`);
+                alert('Error de conexión');
+            }
+        }
+        
+        async function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                alert('Por favor ingresa email y contraseña');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/v1/usuarios/registro', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        email, 
+                        password,
+                        nombre: 'Usuario',
+                        apellido: 'Demo',
+                        telefono: '+573001234567'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showUserInfo(data.usuario, data.token.access_token);
+                    log('✅ Registro exitoso');
+                } else {
+                    log(`❌ Error en registro: ${data.detail}`);
+                    alert(`Error: ${data.detail}`);
+                }
+            } catch (error) {
+                log(`❌ Error de conexión: ${error.message}`);
+                alert('Error de conexión');
+            }
+        }
+        
+        async function getCurrentUser() {
+            if (!currentToken) {
+                alert('Primero debes hacer login');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/v1/usuarios/me', {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showUserInfo(data, currentToken);
+                    log('✅ Usuario actual obtenido');
+                } else {
+                    log(`❌ Error obteniendo usuario: ${data.detail}`);
+                    alert(`Error: ${data.detail}`);
+                }
+            } catch (error) {
+                log(`❌ Error de conexión: ${error.message}`);
+                alert('Error de conexión');
+            }
         }
         
         function createSeatMap() {
@@ -190,13 +339,18 @@
         }
         
         function connect() {
+            if (!currentToken) {
+                alert('Primero debes hacer login para conectarte al WebSocket');
+                return;
+            }
+            
             const funcionId = document.getElementById('funcionId').value;
             if (!funcionId) {
                 alert('Por favor ingresa un ID de función');
                 return;
             }
             
-            const wsUrl = `ws://localhost:8000/ws/funciones/${funcionId}/asientos`;
+            const wsUrl = `ws://localhost:8000/ws/funciones/${funcionId}/asientos?token=${currentToken}`;
             log(`Conectando a: ${wsUrl}`);
             updateStatus('Conectando...', 'connecting');
             
@@ -211,7 +365,9 @@
                 const data = JSON.parse(event.data);
                 log(`📨 Recibido: ${JSON.stringify(data, null, 2)}`);
                 
-                if (data.type === 'seat_selected') {
+                if (data.type === 'connection_established') {
+                    log(`👤 Conectado como: ${data.user_info.nombre} ${data.user_info.apellido} (ID: ${data.user_id})`);
+                } else if (data.type === 'seat_selected') {
                     // Actualizar asientos seleccionados por otros usuarios
                     tempSelectedSeats = tempSelectedSeats.concat(data.asientos);
                     updateSeatDisplay();
@@ -249,13 +405,8 @@
         }
         
         function selectSeats() {
-            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-                alert('No hay conexión WebSocket activa');
-                return;
-            }
-            
-            if (selectedSeats.length === 0) {
-                alert('Por favor selecciona al menos un asiento');
+            if (!websocket || selectedSeats.length === 0) {
+                alert('Debes estar conectado y seleccionar al menos un asiento');
                 return;
             }
             
@@ -269,13 +420,8 @@
         }
         
         function deselectSeats() {
-            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-                alert('No hay conexión WebSocket activa');
-                return;
-            }
-            
-            if (selectedSeats.length === 0) {
-                alert('Por favor selecciona al menos un asiento');
+            if (!websocket || selectedSeats.length === 0) {
+                alert('Debes estar conectado y seleccionar al menos un asiento');
                 return;
             }
             
@@ -294,8 +440,7 @@
         
         // Inicializar
         createSeatMap();
-        log('🚀 Cliente WebSocket iniciado');
-        log('💡 Conecta a una función y selecciona asientos para probar');
+        updateSeatDisplay();
     </script>
 </body>
 </html> 

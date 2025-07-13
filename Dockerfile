@@ -21,12 +21,11 @@ COPY . .
 # Crear directorio para logs
 RUN mkdir -p /app/logs
 
-# Exponer puertos
-EXPOSE 8000 8001
+# Exponer puerto
+EXPOSE 8000
 
-# Script de inicio
-COPY scripts/start_services.sh /app/start_services.sh
-RUN chmod +x /app/start_services.sh
+# Hacer ejecutable el script de inicio
+RUN chmod +x /app/scripts/start_services.sh
 
 # Comando de inicio
-CMD ["/app/start_services.sh"] 
+CMD ["/app/scripts/start_services.sh"] 
