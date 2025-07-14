@@ -203,6 +203,34 @@ class SeleccionAsientoRepository:
             print(f"Error confirmando selección: {e}")
             return False
     
+    async def actualizar_estado_seleccion(self, usuario_id: str, funcion_id: str, asiento_id: str, nuevo_estado: str, fecha_actualizacion: datetime) -> bool:
+        """Actualizar estado de una selección específica"""
+        try:
+            update_data = {
+                "estado": nuevo_estado
+            }
+            
+            if nuevo_estado == "confirmada":
+                update_data["fecha_confirmacion"] = fecha_actualizacion
+            elif nuevo_estado == "cancelada":
+                update_data["fecha_cancelacion"] = fecha_actualizacion
+            
+            result = await self.collection.update_one(
+                {
+                    "usuario_id": usuario_id,
+                    "funcion_id": funcion_id,
+                    "asiento_id": asiento_id,
+                    "estado": "temporal"  # Solo actualizar selecciones temporales
+                },
+                {"$set": update_data}
+            )
+            
+            return result.modified_count > 0
+            
+        except Exception as e:
+            print(f"Error actualizando estado de selección: {e}")
+            return False
+    
     async def limpiar_selecciones_expiradas(self) -> int:
         """Limpiar selecciones temporales expiradas"""
         try:

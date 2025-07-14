@@ -1,157 +1,181 @@
-from fastapi import APIRouter, HTTPException, status
-from typing import List
+"""
+Controlador de Transacciones para el sistema de cine
+"""
+
+from typing import List, Dict, Any
+from fastapi import APIRouter, HTTPException, status, Depends, Header
 from pydantic import BaseModel, Field
-from services.global_services import get_mongodb_service
-from infrastructure.cache.redis_service import RedisService
+from datetime import datetime
+
+from domain.entities.transaccion import MetodoPago, EstadoTransaccion
 from use_cases.comprar_entrada_use_case import ComprarEntradaUseCase
+from controllers.usuarios_controller import get_current_user
+from services.email_service import email_service
 
 router = APIRouter(prefix="/api/v1/transacciones", tags=["Transacciones"])
 
-# DTOs
+# DTOs para requests
 class CompraEntradaRequest(BaseModel):
-    cliente_id: str = Field(..., description="ID del cliente")
-    pelicula_id: str = Field(..., description="ID de la película")
     funcion_id: str = Field(..., description="ID de la función")
-    asientos: List[str] = Field(..., description="Lista de códigos de asientos (ej: ['A5', 'A6'])")
-    metodo_pago: str = Field(..., description="Método de pago")
+    asientos: List[str] = Field(..., description="Lista de códigos de asientos")
+    metodo_pago: MetodoPago = Field(..., description="Método de pago")
+    datos_pago: Dict[str, Any] = Field(default_factory=dict, description="Datos adicionales del pago")
+    codigo_promocion: str = Field(None, description="Código promocional (opcional)")
 
-class CompraEntradaResponse(BaseModel):
-    transaccion_id: str
-    estado: str
-    asientos: List[str]
-    total: float
-    qr_code: str
-    numero_factura: str
 
-@router.post("/comprar-entrada", response_model=CompraEntradaResponse)
-async def comprar_entrada(request: CompraEntradaRequest):
-    """
-    Endpoint principal para comprar entradas
-    Implementa el algoritmo optimizado de compra
-    """
-    try:
-        # Validaciones básicas
-        if not request.asientos:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Debe seleccionar al menos un asiento"
-            )
-        
-        # Usar el caso de uso para procesar la compra
-        use_case = ComprarEntradaUseCase()
-        resultado = await use_case.ejecutar(request)
-        
-        return CompraEntradaResponse(**resultado)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al procesar compra: {str(e)}"
-        )
+class CancelarTransaccionRequest(BaseModel):
+    motivo: str = Field(None, description="Motivo de la cancelación")
 
-@router.get("/{transaccion_id}", response_model=dict)
-async def obtener_transaccion(transaccion_id: str):
-    """Obtiene información de una transacción específica"""
-    try:
-        mongodb_service = get_mongodb_service()
-        if not mongodb_service:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Servicio de base de datos no disponible"
-            )
-        
-        transaccion = await mongodb_service.obtener_transaccion(transaccion_id)
-        
-        if not transaccion:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Transacción no encontrada"
-            )
-        
-        return transaccion
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al obtener transacción: {str(e)}"
-        )
 
-@router.get("/cliente/{cliente_id}", response_model=dict)
-async def listar_transacciones_cliente(
-    cliente_id: str,
-    limite: int = 20
+# DTOs para responses
+class TransaccionResponse(BaseModel):
+    transaccion_id: str = Field(..., description="ID de la transacción")
+    numero_factura: str = Field(..., description="Número de factura")
+    estado: EstadoTransaccion = Field(..., description="Estado de la transacción")
+    total: float = Field(..., description="Total de la transacción")
+    asientos: List[str] = Field(..., description="Asientos comprados")
+    fecha_vencimiento: str = Field(..., description="Fecha de vencimiento")
+    resultado_pago: Dict[str, Any] = Field(..., description="Resultado del procesamiento de pago")
+    resumen: Dict[str, Any] = Field(..., description="Resumen de la transacción")
+
+
+class HistorialComprasResponse(BaseModel):
+    transacciones: List[Dict[str, Any]] = Field(..., description="Lista de transacciones")
+    total: int = Field(..., description="Total de transacciones")
+
+
+@router.post("/comprar-entrada", response_model=TransaccionResponse)
+async def comprar_entrada(
+    request: CompraEntradaRequest,
+    current_user: dict = Depends(get_current_user)
 ):
-    """Lista las transacciones de un cliente específico"""
+    """Comprar entradas para una función"""
     try:
-        mongodb_service = get_mongodb_service()
-        if not mongodb_service:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Servicio de base de datos no disponible"
-            )
+        use_case = ComprarEntradaUseCase()
         
-        transacciones = await mongodb_service.listar_transacciones_cliente(cliente_id, limite)
+        # Agregar código promocional si existe
+        if request.codigo_promocion:
+            request.datos_pago["codigo_promocion"] = request.codigo_promocion
         
-        return {
-            "cliente_id": cliente_id,
-            "transacciones": transacciones,
-            "total": len(transacciones)
-        }
+        # Agregar información del usuario
+        request.datos_pago["ip_origen"] = "127.0.0.1"  # En producción obtener del request
+        request.datos_pago["user_agent"] = "web"  # En producción obtener del request
+        request.datos_pago["canal_venta"] = "web"
         
+        resultado = await use_case.ejecutar(
+            usuario_id=current_user["sub"],
+            funcion_id=request.funcion_id,
+            asientos=request.asientos,
+            metodo_pago=request.metodo_pago,
+            datos_pago=request.datos_pago
+        )
+        
+        return TransaccionResponse(**resultado)
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al obtener transacciones: {str(e)}"
+            detail=f"Error interno del servidor: {str(e)}"
         )
+
+
+@router.get("/historial", response_model=HistorialComprasResponse)
+async def obtener_historial_compras(
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user)
+):
+    """Obtener historial de compras del usuario"""
+    try:
+        use_case = ComprarEntradaUseCase()
+        historial = await use_case.obtener_historial_compras(
+            usuario_id=current_user["sub"],
+            limit=limit
+        )
+        
+        return HistorialComprasResponse(
+            transacciones=historial,
+            total=len(historial)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
+
 
 @router.post("/{transaccion_id}/cancelar")
-async def cancelar_transaccion(transaccion_id: str):
-    """Cancela una transacción y libera los asientos"""
+async def cancelar_transaccion(
+    transaccion_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Cancelar una transacción"""
     try:
-        mongodb_service = get_mongodb_service()
-        if not mongodb_service:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Servicio de base de datos no disponible"
-            )
+        use_case = ComprarEntradaUseCase()
         
-        redis_service = RedisService()
+        resultado = await use_case.cancelar_transaccion(
+            transaccion_id=transaccion_id,
+            usuario_id=current_user["sub"]
+        )
         
-        # Obtener transacción
-        transaccion = await mongodb_service.obtener_transaccion(transaccion_id)
+        return resultado
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
+
+
+@router.get("/{transaccion_id}")
+async def obtener_transaccion(
+    transaccion_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Obtener detalles de una transacción específica"""
+    try:
+        use_case = ComprarEntradaUseCase()
+        
+        # Obtener transacción del repositorio
+        transaccion = await use_case.transaccion_repo.obtener_transaccion_por_id(transaccion_id)
+        
         if not transaccion:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Transacción no encontrada"
             )
         
-        if transaccion.get("estado") == "cancelada":
+        # Verificar que el usuario es el propietario
+        if transaccion.cliente_id != current_user["sub"]:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="La transacción ya está cancelada"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos para ver esta transacción"
             )
         
-        # Liberar asientos en Redis
-        funcion_id = transaccion.get("funcion_id")
-        asientos = transaccion.get("asientos", [])
-        
-        if funcion_id and asientos:
-            await redis_service.liberar_asientos(funcion_id, asientos)
-        
-        # Actualizar estado en MongoDB
-        await mongodb_service.actualizar_transaccion(
-            transaccion_id, 
-            {"estado": "cancelada", "fecha_cancelacion": "2024-12-20T10:00:00Z"}
-        )
-        
         return {
-            "transaccion_id": transaccion_id,
-            "estado": "cancelada",
-            "mensaje": "Transacción cancelada exitosamente"
+            "id": transaccion.id,
+            "numero_factura": transaccion.numero_factura,
+            "fecha_creacion": transaccion.fecha_creacion.isoformat(),
+            "fecha_actualizacion": transaccion.fecha_actualizacion.isoformat(),
+            "estado": transaccion.estado,
+            "funcion_id": transaccion.funcion_id,
+            "pelicula_id": transaccion.pelicula_id,
+            "asientos": transaccion.obtener_codigos_asientos(),
+            "subtotal": transaccion.subtotal,
+            "descuento_cliente": transaccion.descuento_cliente,
+            "descuento_promocional": transaccion.descuento_promocional,
+            "impuestos": transaccion.impuestos,
+            "total": transaccion.total,
+            "metodo_pago": transaccion.pago.metodo,
+            "puede_cancelar": transaccion.puede_ser_cancelada(),
+            "puede_reembolsar": transaccion.puede_ser_reembolsada(),
+            "resumen": transaccion.generar_resumen()
         }
         
     except HTTPException:
@@ -159,5 +183,126 @@ async def cancelar_transaccion(transaccion_id: str):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al cancelar transacción: {str(e)}"
+            detail=f"Error interno del servidor: {str(e)}"
+        )
+
+
+@router.get("/funciones/{funcion_id}/asientos-ocupados")
+async def obtener_asientos_ocupados_funcion(funcion_id: str):
+    """Obtener lista de asientos ocupados en una función"""
+    try:
+        use_case = ComprarEntradaUseCase()
+        
+        asientos_ocupados = await use_case.transaccion_repo.obtener_asientos_ocupados_funcion(funcion_id)
+        
+        return {
+            "funcion_id": funcion_id,
+            "asientos_ocupados": asientos_ocupados,
+            "total_ocupados": len(asientos_ocupados)
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
+
+
+@router.get("/estadisticas/ventas")
+async def obtener_estadisticas_ventas(
+    fecha_inicio: str,
+    fecha_fin: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Obtener estadísticas de ventas (solo para administradores)"""
+    try:
+        # Verificar si el usuario es administrador (ejemplo)
+        if not current_user.get("email", "").endswith("@admin.com"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos para ver estadísticas"
+            )
+        
+        from datetime import datetime
+        fecha_inicio_dt = datetime.fromisoformat(fecha_inicio)
+        fecha_fin_dt = datetime.fromisoformat(fecha_fin)
+        
+        use_case = ComprarEntradaUseCase()
+        estadisticas = await use_case.transaccion_repo.obtener_estadisticas_ventas(
+            fecha_inicio_dt, fecha_fin_dt
+        )
+        
+        return {
+            "periodo": {
+                "fecha_inicio": fecha_inicio,
+                "fecha_fin": fecha_fin
+            },
+            "estadisticas": estadisticas
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
+
+
+@router.post("/procesar-correos")
+async def procesar_cola_correos(
+    batch_size: int = 10,
+    current_user: dict = Depends(get_current_user)
+):
+    """Procesar cola de correos pendientes (solo administradores)"""
+    try:
+        # Verificar que el usuario es administrador (simulado)
+        if not current_user.get("email", "").endswith("@admin.com"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo administradores pueden procesar correos"
+            )
+        
+        # Procesar correos
+        correos_procesados = await email_service.procesar_cola_correos(batch_size)
+        
+        return {
+            "mensaje": f"Se procesaron {correos_procesados} correos",
+            "correos_procesados": correos_procesados,
+            "batch_size": batch_size,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error procesando correos: {str(e)}"
+        )
+
+
+@router.get("/estadisticas/correos")
+async def obtener_estadisticas_correos(
+    current_user: dict = Depends(get_current_user)
+):
+    """Obtener estadísticas de correos enviados"""
+    try:
+        # Verificar que el usuario es administrador (simulado)
+        if not current_user.get("email", "").endswith("@admin.com"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo administradores pueden ver estadísticas de correos"
+            )
+        
+        estadisticas = await email_service.obtener_estadisticas_correos()
+        
+        return estadisticas
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo estadísticas de correos: {str(e)}"
         ) 

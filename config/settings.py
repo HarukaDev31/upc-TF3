@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import Optional
 
 
@@ -25,7 +26,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     
     # Environment
-    environment: str = "development"
+    environment: str = Field(default="development", validation_alias="ENVIRONMENT")
     debug: bool = True
     
     # External Services
@@ -39,6 +40,26 @@ class Settings(BaseSettings):
     # Performance
     redis_pool_max_connections: int = 50
     mongodb_max_connections: int = 100
+    
+    # Email Configuration
+    smtp_host: str = Field(default="smtp.gmail.com", validation_alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
+    smtp_user: str = Field(default="tu-email@gmail.com", validation_alias="SMTP_USER")
+    smtp_password: str = Field(default="tu-password", validation_alias="SMTP_PASSWORD")
+    smtp_use_tls: bool = Field(default=True, validation_alias="SMTP_USE_TLS")
+    smtp_verify_ssl: bool = Field(default=True, validation_alias="SMTP_VERIFY_SSL")
+    smtp_max_retries: int = Field(default=3, validation_alias="SMTP_MAX_RETRIES")
+    smtp_timeout: int = Field(default=30, validation_alias="SMTP_TIMEOUT")
+    
+    # Email Templates
+    email_from_name: str = Field(default="Cinemax", validation_alias="EMAIL_FROM_NAME")
+    email_from_address: str = Field(default="noreply@cinemax.com", validation_alias="EMAIL_FROM_ADDRESS")
+    email_reply_to: str = Field(default="support@cinemax.com", validation_alias="EMAIL_REPLY_TO")
+    
+    # Email Features
+    enable_email_notifications: bool = Field(default=True, validation_alias="ENABLE_EMAIL_NOTIFICATIONS")
+    email_batch_size: int = Field(default=10, validation_alias="EMAIL_BATCH_SIZE")
+    email_retry_delay: int = Field(default=5, validation_alias="EMAIL_RETRY_DELAY")
     
     class Config:
         env_file = ".env"

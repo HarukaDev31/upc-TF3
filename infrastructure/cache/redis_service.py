@@ -144,6 +144,18 @@ class RedisService:
         """Lee mensajes de streams"""
         return await self.redis_client.xread(streams, count=count, block=block)
     
+    async def xack(self, stream: str, group: str, message_id: str) -> int:
+        """Confirma el procesamiento de un mensaje en un stream"""
+        return await self.redis_client.xack(stream, group, message_id)
+    
+    async def xlen(self, stream: str) -> int:
+        """Obtiene el número de mensajes en un stream"""
+        return await self.redis_client.xlen(stream)
+    
+    async def zcount(self, key: str, min_score: Union[float, str], max_score: Union[float, str]) -> int:
+        """Cuenta elementos en un sorted set dentro de un rango de scores"""
+        return await self.redis_client.zcount(key, min_score, max_score)
+    
     # Operaciones avanzadas
     async def set_with_expiry(self, key: str, value: str, expire_seconds: int, only_if_not_exists: bool = False) -> bool:
         """Establece un valor con TTL y opción NX"""
@@ -257,7 +269,58 @@ class RedisService:
         # Por ahora solo devolvemos True
         return True
     
+    async def liberar_asiento(self, funcion_id: str, asiento: str, usuario_id: str) -> bool:
+        """Libera un asiento reservado temporalmente"""
+        try:
+            if not self.redis_client:
+                return False
+            
+            # Clave para la reserva temporal
+            reserva_key = f"reserva:{funcion_id}:{asiento}:{usuario_id}"
+            
+            # Eliminar la reserva
+            result = await self.redis_client.delete(reserva_key)
+            
+            # También eliminar del bitmap de asientos ocupados
+            bitmap_key = f"sala:asientos:{funcion_id}"
+            # Calcular offset basado en el asiento (simplificado)
+            offset = hash(asiento) % 1000  # Hash simple para offset
+            
+            await self.redis_client.setbit(bitmap_key, offset, 0)
+            
+            return result > 0
+            
+        except Exception as e:
+            print(f"Error liberando asiento: {e}")
+            return False
+    
     async def get_ocupacion_promedio(self) -> float:
         """Obtiene el porcentaje promedio de ocupación de todas las salas"""
         # Simular cálculo de ocupación promedio
-        return 65.5  # Porcentaje de ejemplo 
+        return 65.5  # Porcentaje de ejemplo
+    
+    async def marcar_asiento_ocupado(self, funcion_id: str, asiento: str) -> bool:
+        """Marca un asiento como ocupado permanentemente"""
+        try:
+            if not self.redis_client:
+                return False
+            
+            # Agregar a la lista de asientos ocupados permanentemente
+            key_asientos_ocupados = f"funcion:asientos_ocupados_permanente:{funcion_id}"
+            await self.redis_client.sadd(key_asientos_ocupados, asiento)
+            
+            # Eliminar de la lista de asientos ocupados temporalmente (si existe)
+            key_asientos_temporales = f"funcion:asientos_ocupados:{funcion_id}"
+            await self.redis_client.srem(key_asientos_temporales, asiento)
+            
+            # Marcar en bitmap de asientos
+            bitmap_key = f"sala:asientos:{funcion_id}"
+            offset = hash(asiento) % 1000  # Hash simple para offset
+            await self.redis_client.setbit(bitmap_key, offset, 1)
+            
+            print(f"✅ Asiento {asiento} marcado como ocupado permanentemente para función {funcion_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error marcando asiento {asiento} como ocupado: {e}")
+            return False 

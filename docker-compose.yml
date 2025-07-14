@@ -70,6 +70,21 @@ services:
       - MONGODB_MAX_CONNECTIONS=100
       - WEBSOCKET_PORT=8001
       - WEBSOCKET_HOST=0.0.0.0
+      # Email Configuration
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=harukakasugano31@gmail.com
+      - SMTP_PASSWORD=ebbimqokubqqnvqe
+      - SMTP_USE_TLS=true
+      - SMTP_VERIFY_SSL=true
+      - SMTP_MAX_RETRIES=3
+      - SMTP_TIMEOUT=30
+      - EMAIL_FROM_NAME=Cinemax
+      - EMAIL_FROM_ADDRESS=harukakasugano31@gmail.com
+      - EMAIL_REPLY_TO=harukakasugano31@gmail.com
+      - ENABLE_EMAIL_NOTIFICATIONS=true
+      - EMAIL_BATCH_SIZE=10
+      - EMAIL_RETRY_DELAY=5
     depends_on:
       mongodb:
         condition: service_healthy

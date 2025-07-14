@@ -13,7 +13,7 @@ class TipoCliente(str, Enum):
 class Cliente(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     nombre: str = Field(..., min_length=2, max_length=100)
-    email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
+    email: str = Field(..., pattern=r'^[^@]+@[^@]+\.[^@]+$')
     telefono: Optional[str] = Field(None, min_length=8, max_length=15)
     tipo: TipoCliente = TipoCliente.REGULAR
     fecha_registro: datetime = Field(default_factory=datetime.now)

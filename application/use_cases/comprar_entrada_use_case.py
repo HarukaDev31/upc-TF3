@@ -284,7 +284,7 @@ class ComprarEntradaUseCase:
             "estado": "confirmado",
             "asientos": transaccion.obtener_codigos_asientos(),
             "total": transaccion.total,
-            "qr_code": codigo_qr,
+            "codigo_qr": codigo_qr,
             "numero_factura": transaccion.numero_factura
         }
 
