@@ -113,16 +113,48 @@ class MongoDBService:
     
     async def buscar_peliculas_texto(self, texto: str, limite: int = 50) -> List[Dict[str, Any]]:
         """Búsqueda de texto completo en películas"""
-        filtros = {
-            "$text": {"$search": texto},
-            "activa": True
-        }
-        cursor = self.database.peliculas.find(
-            filtros,
-            {"score": {"$meta": "textScore"}}
-        ).sort([("score", {"$meta": "textScore"})]).limit(limite)
-        
-        return await cursor.to_list(length=limite)
+        try:
+            # Intentar búsqueda de texto completo primero
+            filtros = {
+                "$text": {"$search": texto},
+                "activa": True
+            }
+            cursor = self.database.peliculas.find(
+                filtros,
+                {"score": {"$meta": "textScore"}}
+            ).sort([("score", {"$meta": "textScore"})]).limit(limite)
+            
+            resultados = await cursor.to_list(length=limite)
+            
+            # Si no hay resultados con búsqueda de texto, usar búsqueda regex como fallback
+            if not resultados:
+                print(f"⚠️ Búsqueda de texto no encontró resultados, usando fallback regex")
+                filtros_fallback = {
+                    "activa": True,
+                    "$or": [
+                        {"titulo": {"$regex": texto, "$options": "i"}},
+                        {"sinopsis": {"$regex": texto, "$options": "i"}},
+                        {"director": {"$regex": texto, "$options": "i"}}
+                    ]
+                }
+                cursor_fallback = self.database.peliculas.find(filtros_fallback).limit(limite)
+                resultados = await cursor_fallback.to_list(length=limite)
+            
+            return resultados
+            
+        except Exception as e:
+            print(f"❌ Error en búsqueda de texto: {e}")
+            # Fallback a búsqueda regex si falla la búsqueda de texto
+            filtros_fallback = {
+                "activa": True,
+                "$or": [
+                    {"titulo": {"$regex": texto, "$options": "i"}},
+                    {"sinopsis": {"$regex": texto, "$options": "i"}},
+                    {"director": {"$regex": texto, "$options": "i"}}
+                ]
+            }
+            cursor_fallback = self.database.peliculas.find(filtros_fallback).limit(limite)
+            return await cursor_fallback.to_list(length=limite)
     
     # Operaciones para funciones
     async def crear_funcion(self, funcion_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -142,6 +174,14 @@ class MongoDBService:
         ).sort("fecha_hora_inicio", 1)
         
         return await cursor.to_list(length=100)
+    
+    async def listar_todas_funciones(self, limite: int = 100) -> List[Dict[str, Any]]:
+        """Lista todas las funciones activas"""
+        cursor = self.database.funciones.find(
+            {"estado": {"$ne": "cancelada"}}
+        ).sort("fecha_hora_inicio", 1).limit(limite)
+        
+        return await cursor.to_list(length=limite)
     
     async def actualizar_funcion(self, funcion_id: str, update_data: Dict[str, Any]) -> bool:
         """Actualiza una función"""
@@ -289,4 +329,110 @@ class MongoDBService:
                 "$lt": f"{hoy}T23:59:59Z"
             },
             "estado": "confirmado"
-        }) 
+        })
+    
+    async def obtener_generos_populares(self, limite: int = 10) -> List[Dict[str, Any]]:
+        """Obtiene los géneros más populares basado en ventas"""
+        pipeline = [
+            {
+                "$match": {"estado": "confirmado"}
+            },
+            {
+                "$lookup": {
+                    "from": "peliculas",
+                    "localField": "pelicula_id",
+                    "foreignField": "_id",
+                    "as": "pelicula"
+                }
+            },
+            {
+                "$unwind": "$pelicula"
+            },
+            {
+                "$unwind": "$pelicula.generos"
+            },
+            {
+                "$group": {
+                    "_id": "$pelicula.generos",
+                    "total_ventas": {"$sum": "$total"},
+                    "total_transacciones": {"$sum": 1},
+                    "total_asientos": {"$sum": "$cantidad_asientos"},
+                    "peliculas_unicas": {"$addToSet": "$pelicula_id"}
+                }
+            },
+            {
+                "$project": {
+                    "genero": "$_id",
+                    "total_ventas": 1,
+                    "total_transacciones": 1,
+                    "total_asientos": 1,
+                    "peliculas_unicas": {"$size": "$peliculas_unicas"},
+                    "promedio_venta": {"$divide": ["$total_ventas", "$total_transacciones"]}
+                }
+            },
+            {
+                "$sort": {"total_asientos": -1}
+            },
+            {
+                "$limit": limite
+            }
+        ]
+        
+        return await self.database.transacciones.aggregate(pipeline).to_list(limite)
+    
+    async def obtener_horarios_pico(self, dias_atras: int = 30) -> List[Dict[str, Any]]:
+        """Obtiene los horarios pico basado en ventas de los últimos días"""
+        from datetime import datetime, timedelta
+        
+        fecha_inicio = (datetime.now() - timedelta(days=dias_atras)).isoformat()
+        
+        pipeline = [
+            {
+                "$match": {
+                    "estado": "confirmado",
+                    "fecha_creacion": {"$gte": fecha_inicio}
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "funciones",
+                    "localField": "funcion_id",
+                    "foreignField": "_id",
+                    "as": "funcion"
+                }
+            },
+            {
+                "$unwind": "$funcion"
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "hora": {"$hour": {"$dateFromString": {"dateString": "$funcion.fecha_hora_inicio"}}},
+                        "dia_semana": {"$dayOfWeek": {"$dateFromString": {"dateString": "$funcion.fecha_hora_inicio"}}}
+                    },
+                    "total_ventas": {"$sum": "$total"},
+                    "total_transacciones": {"$sum": 1},
+                    "total_asientos": {"$sum": "$cantidad_asientos"},
+                    "funciones_unicas": {"$addToSet": "$funcion_id"}
+                }
+            },
+            {
+                "$project": {
+                    "hora": "$_id.hora",
+                    "dia_semana": "$_id.dia_semana",
+                    "total_ventas": 1,
+                    "total_transacciones": 1,
+                    "total_asientos": 1,
+                    "funciones_unicas": {"$size": "$funciones_unicas"},
+                    "promedio_venta": {"$divide": ["$total_ventas", "$total_transacciones"]}
+                }
+            },
+            {
+                "$sort": {"total_asientos": -1}
+            },
+            {
+                "$limit": 20
+            }
+        ]
+        
+        return await self.database.transacciones.aggregate(pipeline).to_list(20) 

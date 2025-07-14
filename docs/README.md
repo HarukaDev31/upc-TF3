@@ -186,17 +186,56 @@ curl http://localhost:8000/health
 curl http://localhost:8000/metrics
 ```
 
-## 🚀 Despliegue
+## 🚀 Despliegue Automático
 
-### Docker Compose
+### Despliegue Rápido con Nginx
+
+#### 🎯 Opción 1: Despliegue Automático (Recomendado)
 ```bash
-docker-compose up -d
+# Linux/Mac
+./scripts/deploy.sh
+
+# Windows
+.\scripts\deploy.ps1
+
+# EC2 Ubuntu
+./scripts/deploy-ec2-ubuntu.sh
 ```
 
-### Kubernetes
+#### 🎯 Opción 2: Despliegue Manual
 ```bash
-kubectl apply -f k8s/
+# 1. Clonar repositorio
+git clone https://github.com/tu-usuario/cinemax-api.git
+cd cinemax-api
+
+# 2. Levantar servicios con Nginx
+docker-compose up -d --build
+
+# 3. Verificar estado
+docker-compose ps
 ```
+
+### 🌐 Servicios Disponibles
+
+| Servicio | Puerto | URL | Descripción |
+|----------|--------|-----|-------------|
+| **API Principal** | 80 | http://localhost | API REST con Nginx |
+| **Documentación** | 80 | http://localhost/docs | Swagger UI |
+| **WebSocket** | 80 | ws://localhost/ws/ | Tiempo real |
+| **Grafana** | 3000 | http://localhost:3000 | Dashboard (admin/admin123) |
+| **MongoDB Express** | 8081 | http://localhost:8081 | Admin DB (admin/admin123) |
+| **Redis Commander** | 8082 | http://localhost:8082 | Admin Redis (admin/admin123) |
+| **Prometheus** | 9090 | http://localhost:9090 | Métricas |
+
+### 🔒 Configuración de Seguridad
+- **Nginx** como proxy inverso con rate limiting
+- **Headers de seguridad** automáticos
+- **Compresión Gzip** para mejor rendimiento
+- **Logs detallados** de acceso y errores
+
+### 📚 Documentación Completa
+- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Guía general de despliegue
+- [EC2_DEPLOYMENT_GUIDE.md](EC2_DEPLOYMENT_GUIDE.md) - Guía específica para EC2
 
 ## 📝 Documentación
 

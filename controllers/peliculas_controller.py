@@ -98,17 +98,38 @@ async def buscar_peliculas(request: BuscarPeliculasRequest):
                 detail="Servicio de base de datos no disponible"
             )
         
+        print(f"🔍 Búsqueda iniciada - Texto: '{request.texto}', Género: '{request.genero}', Límite: {request.limite}")
+        
         # Construir filtros
         filtros = {"activa": True}
         
-        if request.genero:
+        if request.genero and request.genero.strip():
             filtros["generos"] = {"$in": [request.genero]}
+            print(f"📝 Filtro de género aplicado: {request.genero}")
         
         # Búsqueda por texto si se proporciona
-        if request.texto:
-            resultados = await mongodb_service.buscar_peliculas_texto(request.texto, request.limite)
+        if request.texto and request.texto.strip():
+            print(f"🔤 Búsqueda de texto: '{request.texto}'")
+            try:
+                resultados = await mongodb_service.buscar_peliculas_texto(request.texto, request.limite)
+                print(f"✅ Búsqueda de texto completada - {len(resultados)} resultados")
+            except Exception as e:
+                print(f"⚠️ Error en búsqueda de texto: {e}")
+                # Fallback a búsqueda normal si falla la búsqueda de texto
+                resultados = await mongodb_service.buscar_peliculas(filtros, request.limite)
+                print(f"🔄 Fallback a búsqueda normal - {len(resultados)} resultados")
         else:
+            print(f"📋 Búsqueda sin texto - usando filtros básicos")
             resultados = await mongodb_service.buscar_peliculas(filtros, request.limite)
+            print(f"✅ Búsqueda normal completada - {len(resultados)} resultados")
+        
+        # Log de resultados para debug
+        if resultados:
+            print(f"📊 Primeros 3 resultados:")
+            for i, pelicula in enumerate(resultados[:3]):
+                print(f"  {i+1}. {pelicula.get('titulo', 'Sin título')} - ID: {pelicula.get('_id', 'Sin ID')}")
+        else:
+            print(f"❌ No se encontraron resultados")
         
         return {
             "resultados": resultados,
@@ -117,6 +138,7 @@ async def buscar_peliculas(request: BuscarPeliculasRequest):
         }
         
     except Exception as e:
+        print(f"❌ Error en búsqueda: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error en búsqueda: {str(e)}"

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from typing import List, Dict, Any
 from pydantic import BaseModel, Field
-from services.global_services import get_mongodb_service
+from services.global_services import get_mongodb_service, get_redis_service
 from infrastructure.cache.redis_service import RedisService
 
 router = APIRouter(prefix="/api/v1/funciones", tags=["Funciones"])
@@ -29,7 +29,7 @@ async def obtener_asientos_funcion(funcion_id: str):
                 detail="Servicio de base de datos no disponible"
             )
         
-        redis_service = RedisService()
+        redis_service = get_redis_service()
         
         # Verificar que la función existe
         funcion = await mongodb_service.obtener_funcion(funcion_id)
@@ -40,7 +40,16 @@ async def obtener_asientos_funcion(funcion_id: str):
             )
         
         # Obtener asientos ocupados desde Redis
-        asientos_ocupados = await redis_service.get_asientos_ocupados(funcion_id)
+        asientos_ocupados = []
+        if redis_service:
+            try:
+                asientos_ocupados = await redis_service.get_asientos_ocupados(funcion_id)
+            except Exception as e:
+                print(f"⚠️  Error obteniendo asientos ocupados desde Redis: {e}")
+                asientos_ocupados = []
+        else:
+            print("⚠️  Redis no disponible, usando lista vacía de asientos ocupados")
+            asientos_ocupados = []
         
         # Generar mapa completo de asientos
         filas = ["A", "B", "C", "D", "E", "F", "G", "H"]
@@ -129,7 +138,13 @@ async def reservar_asientos_temporales(
 ):
     """Reserva asientos temporalmente para evitar conflictos"""
     try:
-        redis_service = RedisService()
+        redis_service = get_redis_service()
+        
+        if not redis_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Servicio de Redis no disponible"
+            )
         
         # Verificar disponibilidad
         asientos_ocupados = await redis_service.get_asientos_ocupados(funcion_id)

@@ -55,7 +55,7 @@ Esta guía te ayudará a importar y usar la colección de Postman para probar to
 |----------|--------|-------------|
 | `/api/v1/peliculas` | GET | Listar películas con paginación |
 | `/api/v1/peliculas/{id}/funciones` | GET | Funciones de una película |
-| `/api/v1/buscar-peliculas` | POST | Buscar películas por criterios |
+| `/api/v1/peliculas/buscar` | POST | Buscar películas por criterios |
 
 ### 🎭 Gestión de Funciones
 | Endpoint | Método | Descripción |
@@ -72,6 +72,9 @@ Esta guía te ayudará a importar y usar la colección de Postman para probar to
 |----------|--------|-------------|
 | `/api/v1/metricas/ranking-peliculas` | GET | Ranking de películas |
 | `/api/v1/metricas/ocupacion/{id}` | GET | Ocupación de sala |
+| `/api/v1/metricas/ocupacion-salas/todas` | GET | Ocupación de todas las salas |
+| `/api/v1/metricas/generos-populares` | GET | Géneros más populares |
+| `/api/v1/metricas/horarios-pico` | GET | Horarios pico de ventas |
 
 ## 🚀 Ejemplos de Uso
 
@@ -105,13 +108,28 @@ Esta guía te ayudará a importar y usar la colección de Postman para probar to
 
 ### 5. Buscar Películas
 ```bash
-# POST http://localhost:8000/api/v1/buscar-peliculas
+# POST http://localhost:8000/api/v1/peliculas/buscar
 {
   "texto": "Avengers",
   "genero": "accion",
   "fecha": "2024-12-20",
   "limite": 10
 }
+```
+
+### 6. Obtener Ocupación de Todas las Salas
+```bash
+# GET http://localhost:8000/api/v1/metricas/ocupacion-salas/todas?limite=10
+```
+
+### 7. Obtener Géneros Más Populares
+```bash
+# GET http://localhost:8000/api/v1/metricas/generos-populares?limite=10
+```
+
+### 8. Obtener Horarios Pico
+```bash
+# GET http://localhost:8000/api/v1/metricas/horarios-pico?dias_atras=30
 ```
 
 ## 🔧 Troubleshooting
@@ -172,6 +190,14 @@ Esta guía te ayudará a importar y usar la colección de Postman para probar to
 1. IDs inexistentes
 2. Datos inválidos
 3. Servicios no disponibles
+
+### 4. Pruebas de Métricas
+1. Ranking de películas con diferentes límites
+2. Ocupación de sala específica
+3. **Ocupación de todas las salas** (ordenada por ocupación)
+4. **Géneros más populares** (nuevo endpoint)
+5. **Horarios pico de ventas** (nuevo endpoint)
+6. Dashboard con resumen general
 
 ## 📝 Notas Importantes
 
