@@ -98,7 +98,7 @@ if [ -d ".git" ]; then
     git pull origin main
 else
     log "Clonando repositorio..."
-    git clone https://github.com/tu-usuario/cinemax-api.git .
+    git clone https://github.com/HarukaDev31/upc-TF3.
 fi
 
 # Crear archivo .env si no existe

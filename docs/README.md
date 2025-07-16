@@ -200,6 +200,9 @@ curl http://localhost:8000/metrics
 
 # EC2 Ubuntu
 ./scripts/deploy-ec2-ubuntu.sh
+
+# WSL2
+./scripts/deploy-wsl2.sh
 ```
 
 #### 🎯 Opción 2: Despliegue Manual
@@ -236,6 +239,7 @@ docker-compose ps
 ### 📚 Documentación Completa
 - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Guía general de despliegue
 - [EC2_DEPLOYMENT_GUIDE.md](EC2_DEPLOYMENT_GUIDE.md) - Guía específica para EC2
+- [WSL2_DEPLOYMENT_GUIDE.md](WSL2_DEPLOYMENT_GUIDE.md) - Guía específica para WSL2
 
 ## 📝 Documentación
 

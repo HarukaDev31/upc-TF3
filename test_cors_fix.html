@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test CORS - API Cine</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test de CORS - API Cine</h1>
+        
+        <div class="test-section info">
+            <h3>📋 Información del Test</h3>
+            <p><strong>Frontend:</strong> https://upcfronted.netlify.app</p>
+            <p><strong>API Backend:</strong> https://moms-geographic-serial-forget.trycloudflare.com</p>
+            <p><strong>Endpoint a probar:</strong> /api/v1/peliculas?limite=12&offset=0</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test de Conexión</h3>
+            <button onclick="testConnection()">Probar Conexión GET</button>
+            <button onclick="testOptions()">Probar OPTIONS (CORS)</button>
+            <button onclick="testHealth()">Probar Health Check</button>
+            <div id="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Logs de Respuesta</h3>
+            <pre id="logs"></pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://moms-geographic-serial-forget.trycloudflare.com';
+        
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logsDiv.textContent += logEntry;
+        }
+
+        function showResult(message, isSuccess = true) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = isSuccess ? 'success' : 'error';
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        async function testConnection() {
+            log('Iniciando test de conexión GET...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/peliculas?limite=12&offset=0`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                log(`Status: ${response.status} ${response.statusText}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Conexión exitosa. Películas encontradas: ${data.peliculas?.length || 0}`);
+                    showResult(`✅ Conexión exitosa! Status: ${response.status}`);
+                } else {
+                    log(`❌ Error en la conexión. Status: ${response.status}`);
+                    showResult(`❌ Error en la conexión. Status: ${response.status}`, false);
+                }
+            } catch (error) {
+                log(`❌ Error de red: ${error.message}`);
+                showResult(`❌ Error de red: ${error.message}`, false);
+            }
+        }
+
+        async function testOptions() {
+            log('Iniciando test de OPTIONS (CORS preflight)...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/peliculas`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Content-Type, Accept'
+                    }
+                });
+
+                log(`OPTIONS Status: ${response.status} ${response.statusText}`);
+                
+                // Verificar headers de CORS
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers')
+                };
+                
+                log(`CORS Headers: ${JSON.stringify(corsHeaders, null, 2)}`);
+                
+                if (response.status === 200) {
+                    showResult(`✅ OPTIONS exitoso! Status: ${response.status}`);
+                } else {
+                    showResult(`❌ OPTIONS falló. Status: ${response.status}`, false);
+                }
+            } catch (error) {
+                log(`❌ Error en OPTIONS: ${error.message}`);
+                showResult(`❌ Error en OPTIONS: ${error.message}`, false);
+            }
+        }
+
+        async function testHealth() {
+            log('Iniciando test de health check...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                log(`Health Status: ${response.status} ${response.statusText}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Health check exitoso: ${JSON.stringify(data, null, 2)}`);
+                    showResult(`✅ Health check exitoso! Status: ${response.status}`);
+                } else {
+                    log(`❌ Health check falló. Status: ${response.status}`);
+                    showResult(`❌ Health check falló. Status: ${response.status}`, false);
+                }
+            } catch (error) {
+                log(`❌ Error en health check: ${error.message}`);
+                showResult(`❌ Error en health check: ${error.message}`, false);
+            }
+        }
+
+        // Test automático al cargar la página
+        window.onload = function() {
+            log('Página cargada. Listo para realizar tests.');
+        };
+    </script>
+</body>
+</html> 

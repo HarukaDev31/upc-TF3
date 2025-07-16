@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from infrastructure.cache.redis_service import RedisService
 from config.settings import settings
+from services.global_services import get_algorithms_service
 
 
 class EmailService:
@@ -576,7 +577,7 @@ class EmailService:
     
     def _generar_qr_base64(self, codigo: str) -> str:
         """
-        Genera un código QR y lo convierte a base64 para incluir en el HTML
+        Genera un código QR usando algoritmo recursivo y lo convierte a base64
         
         Args:
             codigo: Código a codificar en el QR
@@ -585,26 +586,31 @@ class EmailService:
             str: Imagen QR en formato base64
         """
         try:
-            import qrcode
             import base64
             from io import BytesIO
             
-            # Crear QR
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.ERROR_CORRECT_L,
-                box_size=10,
-                border=4,
-            )
-            qr.add_data(codigo)
-            qr.make(fit=True)
-            
-            # Crear imagen
-            img = qr.make_image(fill_color="black", back_color="white")
+            # Usar algoritmo recursivo si está disponible
+            algorithms_service = get_algorithms_service()
+            if algorithms_service:
+                print("🔄 Generando QR usando algoritmo recursivo...")
+                qr_image = algorithms_service.generar_qr_recursivo(codigo)
+                print("✅ QR generado exitosamente con algoritmo recursivo")
+            else:
+                # Fallback a generación normal
+                import qrcode
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.ERROR_CORRECT_L,
+                    box_size=10,
+                    border=4,
+                )
+                qr.add_data(codigo)
+                qr.make(fit=True)
+                qr_image = qr.make_image(fill_color="black", back_color="white")
             
             # Convertir a base64
             buffer = BytesIO()
-            img.save(buffer, 'PNG')
+            qr_image.save(buffer, 'PNG')
             img_str = base64.b64encode(buffer.getvalue()).decode()
             
             return img_str

@@ -1,0 +1,263 @@
+{
+  "demo_config": {
+    "base_url": "http://localhost:8000/api/v1",
+    "timeout": 10,
+    "retry_attempts": 3
+  },
+  "datos_ejemplo": {
+    "peliculas": [
+      {
+        "titulo": "Avengers: Endgame",
+        "rating": 9.0,
+        "genero": "Acción",
+        "duracion": 181,
+        "precio": 12,
+        "director": "Anthony Russo",
+        "activa": true
+      },
+      {
+        "titulo": "Titanic",
+        "rating": 8.5,
+        "genero": "Drama",
+        "duracion": 195,
+        "precio": 10,
+        "director": "James Cameron",
+        "activa": true
+      },
+      {
+        "titulo": "Inception",
+        "rating": 8.8,
+        "genero": "Ciencia Ficción",
+        "duracion": 148,
+        "precio": 11,
+        "director": "Christopher Nolan",
+        "activa": true
+      },
+      {
+        "titulo": "The Dark Knight",
+        "rating": 9.2,
+        "genero": "Acción",
+        "duracion": 152,
+        "precio": 13,
+        "director": "Christopher Nolan",
+        "activa": true
+      },
+      {
+        "titulo": "Pulp Fiction",
+        "rating": 8.9,
+        "genero": "Crimen",
+        "duracion": 154,
+        "precio": 9,
+        "director": "Quentin Tarantino",
+        "activa": true
+      }
+    ],
+    "funciones": [
+      {
+        "id": "func_001",
+        "pelicula_id": "pel_001",
+        "hora": "19:00",
+        "sala": "Sala 1",
+        "precio": 12,
+        "asientos_disponibles": 50
+      },
+      {
+        "id": "func_002",
+        "pelicula_id": "pel_002",
+        "hora": "21:30",
+        "sala": "Sala 2",
+        "precio": 10,
+        "asientos_disponibles": 45
+      },
+      {
+        "id": "func_003",
+        "pelicula_id": "pel_003",
+        "hora": "18:00",
+        "sala": "Sala 3",
+        "precio": 11,
+        "asientos_disponibles": 60
+      }
+    ],
+    "transacciones": [
+      {
+        "id": "trans_001",
+        "usuario_id": "user_001",
+        "pelicula_id": "pel_001",
+        "funcion_id": "func_001",
+        "asientos": ["A1", "A2"],
+        "total": 24,
+        "fecha": "2024-01-15T19:00:00Z"
+      },
+      {
+        "id": "trans_002",
+        "usuario_id": "user_002",
+        "pelicula_id": "pel_002",
+        "funcion_id": "func_002",
+        "asientos": ["B5"],
+        "total": 10,
+        "fecha": "2024-01-15T21:30:00Z"
+      }
+    ],
+    "arbol_generos": {
+      "genero": "Cine",
+      "hijos": [
+        {
+          "genero": "Acción",
+          "hijos": [
+            {"genero": "Superhéroes", "hijos": []},
+            {"genero": "Militar", "hijos": []},
+            {"genero": "Aventura", "hijos": []}
+          ]
+        },
+        {
+          "genero": "Drama",
+          "hijos": [
+            {"genero": "Romántico", "hijos": []},
+            {"genero": "Histórico", "hijos": []},
+            {"genero": "Biográfico", "hijos": []}
+          ]
+        },
+        {
+          "genero": "Comedia",
+          "hijos": [
+            {"genero": "Romántica", "hijos": []},
+            {"genero": "Negra", "hijos": []},
+            {"genero": "Familiar", "hijos": []}
+          ]
+        }
+      ]
+    },
+    "grafo_recomendaciones": {
+      "usuario_1": ["usuario_2", "usuario_3", "usuario_4"],
+      "usuario_2": ["usuario_1", "usuario_5"],
+      "usuario_3": ["usuario_1", "usuario_6"],
+      "usuario_4": ["usuario_1", "usuario_7"],
+      "usuario_5": ["usuario_2", "usuario_8"],
+      "usuario_6": ["usuario_3", "usuario_9"],
+      "usuario_7": ["usuario_4", "usuario_10"],
+      "usuario_8": ["usuario_5"],
+      "usuario_9": ["usuario_6"],
+      "usuario_10": ["usuario_7"]
+    },
+    "sala_tree": {
+      "id": "sala_1",
+      "disponible": true,
+      "hijos": [
+        {
+          "id": "fila_a",
+          "disponible": true,
+          "hijos": [
+            {"id": "a1", "disponible": false},
+            {"id": "a2", "disponible": true},
+            {"id": "a3", "disponible": true},
+            {"id": "a4", "disponible": false}
+          ]
+        },
+        {
+          "id": "fila_b",
+          "disponible": true,
+          "hijos": [
+            {"id": "b1", "disponible": true},
+            {"id": "b2", "disponible": true},
+            {"id": "b3", "disponible": false},
+            {"id": "b4", "disponible": true}
+          ]
+        }
+      ]
+    }
+  },
+  "endpoints_demo": {
+    "recursivos": [
+      {
+        "nombre": "Factorial Recursivo",
+        "endpoint": "/algoritmos/recursivos/factorial",
+        "datos": {"n": 10},
+        "descripcion": "Calcula factorial de forma recursiva"
+      },
+      {
+        "nombre": "Fibonacci Recursivo",
+        "endpoint": "/algoritmos/recursivos/fibonacci",
+        "datos": {"n": 15},
+        "descripcion": "Calcula secuencia Fibonacci recursiva"
+      },
+      {
+        "nombre": "Búsqueda en Árbol",
+        "endpoint": "/algoritmos/recursivos/buscar-genero",
+        "datos": {
+          "arbol_generos": "{{arbol_generos}}",
+          "genero_buscar": "Superhéroes"
+        },
+        "descripcion": "Búsqueda recursiva en árbol de géneros"
+      }
+    ],
+    "ordenamiento": [
+      {
+        "nombre": "QuickSort Películas",
+        "endpoint": "/algoritmos/ordenamiento/quicksort-peliculas",
+        "datos": {"peliculas": "{{peliculas}}"},
+        "descripcion": "Ordena películas por rating con QuickSort"
+      },
+      {
+        "nombre": "MergeSort Funciones",
+        "endpoint": "/algoritmos/ordenamiento/mergesort-funciones",
+        "datos": {"funciones": "{{funciones}}"},
+        "descripcion": "Ordena funciones por hora con MergeSort"
+      },
+      {
+        "nombre": "HeapSort Transacciones",
+        "endpoint": "/algoritmos/ordenamiento/heapsort-transacciones",
+        "datos": {"transacciones": "{{transacciones}}"},
+        "descripcion": "Ordena transacciones por fecha con HeapSort"
+      }
+    ],
+    "busqueda": [
+      {
+        "nombre": "Búsqueda Binaria",
+        "endpoint": "/algoritmos/busqueda/binaria-peliculas",
+        "datos": {
+          "peliculas_ordenadas": "{{peliculas_ordenadas}}",
+          "titulo_buscar": "Inception"
+        },
+        "descripcion": "Búsqueda binaria en películas ordenadas"
+      },
+      {
+        "nombre": "Búsqueda Lineal con Filtros",
+        "endpoint": "/algoritmos/busqueda/lineal-filtros",
+        "datos": {
+          "peliculas": "{{peliculas}}",
+          "filtros": {
+            "genero": "Acción",
+            "duracion_max": 160,
+            "precio_max": 15
+          }
+        },
+        "descripcion": "Búsqueda lineal con múltiples criterios"
+      },
+      {
+        "nombre": "DFS Recomendaciones",
+        "endpoint": "/algoritmos/busqueda/dfs-recomendaciones",
+        "datos": {
+          "grafo_recomendaciones": "{{grafo_recomendaciones}}",
+          "usuario_id": "usuario_1",
+          "profundidad_max": 3
+        },
+        "descripcion": "Búsqueda en profundidad para recomendaciones"
+      }
+    ]
+  },
+  "metricas_esperadas": {
+    "tiempo_respuesta": "< 200ms",
+    "throughput": "1000+ req/s",
+    "disponibilidad": "99.9%",
+    "memoria_uso": "< 512MB",
+    "complejidades": {
+      "quicksort": "O(n log n) promedio",
+      "mergesort": "O(n log n) garantizado",
+      "heapsort": "O(n log n)",
+      "busqueda_binaria": "O(log n)",
+      "busqueda_lineal": "O(n)",
+      "dfs": "O(V + E)",
+      "bfs": "O(V + E)"
+    }
+  }
+} 

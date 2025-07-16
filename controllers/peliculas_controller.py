@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Query
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from services.global_services import get_mongodb_service
+from services.global_services import get_mongodb_service, get_algorithms_service
 from infrastructure.cache.redis_service import RedisService
 
 router = APIRouter(prefix="/api/v1/peliculas", tags=["Películas"])
@@ -26,11 +26,14 @@ class PeliculaResponse(BaseModel):
 @router.get("/", response_model=dict)
 async def listar_peliculas(
     limite: int = Query(20, le=100, description="Límite de resultados"),
-    offset: int = Query(0, ge=0, description="Desplazamiento para paginación")
+    offset: int = Query(0, ge=0, description="Desplazamiento para paginación"),
+    ordenar_por_rating: bool = Query(False, description="Ordenar por rating usando QuickSort")
 ):
-    """Lista películas disponibles con paginación"""
+    """Lista películas disponibles con paginación y ordenamiento opcional"""
     try:
         mongodb_service = get_mongodb_service()
+        algorithms_service = get_algorithms_service()
+        
         if not mongodb_service:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -41,6 +44,12 @@ async def listar_peliculas(
         filtros = {"activa": True}
         peliculas = await mongodb_service.buscar_peliculas(filtros, limite + offset)
         
+        # Aplicar algoritmo de ordenamiento si se solicita
+        if ordenar_por_rating and algorithms_service:
+            print("🔄 Aplicando QuickSort para ordenar por rating...")
+            peliculas = algorithms_service.quicksort_peliculas_rating(peliculas.copy())
+            print(f"✅ Películas ordenadas por rating usando QuickSort")
+        
         # Aplicar paginación
         peliculas_paginadas = peliculas[offset:offset + limite]
         
@@ -49,7 +58,8 @@ async def listar_peliculas(
             "total": len(peliculas),
             "limite": limite,
             "offset": offset,
-            "paginas": (len(peliculas) + limite - 1) // limite
+            "paginas": (len(peliculas) + limite - 1) // limite,
+            "ordenamiento_aplicado": "quicksort_rating" if ordenar_por_rating else None
         }
         
     except Exception as e:
@@ -57,6 +67,14 @@ async def listar_peliculas(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al obtener películas: {str(e)}"
         )
+
+@router.get("/list", response_model=dict)
+async def listar_peliculas_alt(
+    limite: int = Query(20, le=100, description="Límite de resultados"),
+    offset: int = Query(0, ge=0, description="Desplazamiento para paginación")
+):
+    """Lista películas disponibles con paginación (ruta alternativa)"""
+    return await listar_peliculas(limite, offset)
 
 @router.get("/{pelicula_id}", response_model=dict)
 async def obtener_pelicula(pelicula_id: str):
@@ -89,9 +107,11 @@ async def obtener_pelicula(pelicula_id: str):
 
 @router.post("/buscar", response_model=dict)
 async def buscar_peliculas(request: BuscarPeliculasRequest):
-    """Búsqueda avanzada de películas con filtros"""
+    """Búsqueda avanzada de películas con filtros y algoritmos de búsqueda"""
     try:
         mongodb_service = get_mongodb_service()
+        algorithms_service = get_algorithms_service()
+        
         if not mongodb_service:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -107,21 +127,39 @@ async def buscar_peliculas(request: BuscarPeliculasRequest):
             filtros["generos"] = {"$in": [request.genero]}
             print(f"📝 Filtro de género aplicado: {request.genero}")
         
-        # Búsqueda por texto si se proporciona
-        if request.texto and request.texto.strip():
-            print(f"🔤 Búsqueda de texto: '{request.texto}'")
-            try:
-                resultados = await mongodb_service.buscar_peliculas_texto(request.texto, request.limite)
-                print(f"✅ Búsqueda de texto completada - {len(resultados)} resultados")
-            except Exception as e:
-                print(f"⚠️ Error en búsqueda de texto: {e}")
-                # Fallback a búsqueda normal si falla la búsqueda de texto
-                resultados = await mongodb_service.buscar_peliculas(filtros, request.limite)
-                print(f"🔄 Fallback a búsqueda normal - {len(resultados)} resultados")
+        # Obtener todas las películas para aplicar algoritmos de búsqueda
+        todas_las_peliculas = await mongodb_service.buscar_peliculas({"activa": True}, 1000)
+        
+        # Aplicar algoritmo de búsqueda lineal con filtros si está disponible
+        if algorithms_service and todas_las_peliculas:
+            print("🔄 Aplicando búsqueda lineal con filtros múltiples...")
+            
+            filtros_algoritmo = {}
+            if request.genero and request.genero.strip():
+                filtros_algoritmo["genero"] = request.genero
+            if request.texto and request.texto.strip():
+                filtros_algoritmo["titulo"] = request.texto
+            
+            resultados = algorithms_service.busqueda_lineal_filtros(todas_las_peliculas, filtros_algoritmo)
+            print(f"✅ Búsqueda lineal completada - {len(resultados)} resultados")
+            
+            # Limitar resultados según el parámetro
+            resultados = resultados[:request.limite]
         else:
-            print(f"📋 Búsqueda sin texto - usando filtros básicos")
-            resultados = await mongodb_service.buscar_peliculas(filtros, request.limite)
-            print(f"✅ Búsqueda normal completada - {len(resultados)} resultados")
+            # Fallback a búsqueda normal de MongoDB
+            if request.texto and request.texto.strip():
+                print(f"🔤 Búsqueda de texto: '{request.texto}'")
+                try:
+                    resultados = await mongodb_service.buscar_peliculas_texto(request.texto, request.limite)
+                    print(f"✅ Búsqueda de texto completada - {len(resultados)} resultados")
+                except Exception as e:
+                    print(f"⚠️ Error en búsqueda de texto: {e}")
+                    resultados = await mongodb_service.buscar_peliculas(filtros, request.limite)
+                    print(f"🔄 Fallback a búsqueda normal - {len(resultados)} resultados")
+            else:
+                print(f"📋 Búsqueda sin texto - usando filtros básicos")
+                resultados = await mongodb_service.buscar_peliculas(filtros, request.limite)
+                print(f"✅ Búsqueda normal completada - {len(resultados)} resultados")
         
         # Log de resultados para debug
         if resultados:
@@ -134,7 +172,8 @@ async def buscar_peliculas(request: BuscarPeliculasRequest):
         return {
             "resultados": resultados,
             "criterios_busqueda": request.dict(),
-            "total_encontrados": len(resultados)
+            "total_encontrados": len(resultados),
+            "algoritmo_utilizado": "busqueda_lineal_filtros" if algorithms_service else "mongodb_nativo"
         }
         
     except Exception as e:

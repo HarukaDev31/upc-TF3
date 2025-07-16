@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Query
 from typing import Dict, Any
-from services.global_services import get_mongodb_service, get_redis_service
+from services.global_services import get_mongodb_service, get_redis_service, get_algorithms_service
 from infrastructure.cache.redis_service import RedisService
 
 router = APIRouter(prefix="/api/v1/metricas", tags=["Métricas"])
@@ -181,12 +181,33 @@ async def obtener_ocupacion_todas_salas(limite: int = Query(50, le=200, descript
                 }
             })
         
-        # Ordenar salas por porcentaje de ocupación (de mayor a menor)
-        ocupacion_salas_ordenadas = sorted(
-            ocupacion_salas, 
-            key=lambda x: x["estadisticas"]["porcentaje_ocupacion"], 
-            reverse=True
-        )
+        # Ordenar salas por porcentaje de ocupación usando algoritmo de ordenamiento
+        algorithms_service = get_algorithms_service()
+        if algorithms_service:
+            print("🔄 Aplicando MergeSort para ordenar salas por ocupación...")
+            
+            # Convertir a formato compatible con el algoritmo
+            salas_formato = []
+            for sala in ocupacion_salas:
+                salas_formato.append({
+                    "id": sala["funcion_id"],
+                    "porcentaje_ocupacion": sala["estadisticas"]["porcentaje_ocupacion"],
+                    "datos_completos": sala
+                })
+            
+            # Aplicar MergeSort (ordenar por porcentaje de ocupación descendente)
+            salas_ordenadas = algorithms_service.mergesort_funciones_hora(salas_formato)
+            print(f"✅ Salas ordenadas por ocupación usando MergeSort")
+            
+            # Reconstruir lista con el orden correcto
+            ocupacion_salas_ordenadas = [sala["datos_completos"] for sala in salas_ordenadas]
+        else:
+            # Fallback a ordenamiento nativo de Python
+            ocupacion_salas_ordenadas = sorted(
+                ocupacion_salas, 
+                key=lambda x: x["estadisticas"]["porcentaje_ocupacion"], 
+                reverse=True
+            )
         
         # Calcular estadísticas generales
         total_salas = len(ocupacion_salas_ordenadas)

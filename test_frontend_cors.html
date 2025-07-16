@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend CORS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Frontend CORS - Simulación Exacta</h1>
+        
+        <div class="test-section info">
+            <h3>📋 Configuración</h3>
+            <p><strong>URL:</strong> https://moms-geographic-serial-forget.trycloudflare.com/api/v1/peliculas/list</p>
+            <p><strong>Origen:</strong> https://upcfronted.netlify.app</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Tests de Conexión</h3>
+            <button onclick="testBasic()">Test Básico (sin credenciales)</button>
+            <button onclick="testWithCredentials()">Test con Credenciales</button>
+            <button onclick="testWithHeaders()">Test con Headers Específicos</button>
+            <button onclick="testFetchAPI()">Test Fetch API (como frontend)</button>
+            <div id="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Logs Detallados</h3>
+            <pre id="logs"></pre>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://moms-geographic-serial-forget.trycloudflare.com/api/v1/peliculas/list?limite=12&offset=0';
+        
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logsDiv.textContent += logEntry;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function showResult(message, isSuccess = true) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = isSuccess ? 'success' : 'error';
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        async function testBasic() {
+            log('=== Test Básico (sin credenciales) ===');
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                log(`Status: ${response.status} ${response.statusText}`);
+                log(`Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Éxito! Películas: ${data.peliculas?.length || 0}`);
+                    showResult(`✅ Test básico exitoso! Status: ${response.status}`);
+                } else {
+                    log(`❌ Error: ${response.status}`);
+                    showResult(`❌ Test básico falló. Status: ${response.status}`, false);
+                }
+            } catch (error) {
+                log(`❌ Error de red: ${error.message}`);
+                showResult(`❌ Error de red: ${error.message}`, false);
+            }
+        }
+
+        async function testWithCredentials() {
+            log('=== Test con Credenciales ===');
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                log(`Status: ${response.status} ${response.statusText}`);
+                log(`Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Éxito con credenciales! Películas: ${data.peliculas?.length || 0}`);
+                    showResult(`✅ Test con credenciales exitoso! Status: ${response.status}`);
+                } else {
+                    log(`❌ Error con credenciales: ${response.status}`);
+                    showResult(`❌ Test con credenciales falló. Status: ${response.status}`, false);
+                }
+            } catch (error) {
+                log(`❌ Error de red con credenciales: ${error.message}`);
+                showResult(`❌ Error de red con credenciales: ${error.message}`, false);
+            }
+        }
+
+        async function testWithHeaders() {
+            log('=== Test con Headers Específicos ===');
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer test-token',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                log(`Status: ${response.status} ${response.statusText}`);
+                log(`Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Éxito con headers específicos! Películas: ${data.peliculas?.length || 0}`);
+                    showResult(`✅ Test con headers específicos exitoso! Status: ${response.status}`);
+                } else {
+                    log(`❌ Error con headers específicos: ${response.status}`);
+                    showResult(`❌ Test con headers específicos falló. Status: ${response.status}`, false);
+                }
+            } catch (error) {
+                log(`❌ Error de red con headers específicos: ${error.message}`);
+                showResult(`❌ Error de red con headers específicos: ${error.message}`, false);
+            }
+        }
+
+        async function testFetchAPI() {
+            log('=== Test Fetch API (simulación frontend) ===');
+            
+            try {
+                // Simular exactamente lo que hace un frontend
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                log(`Status: ${response.status} ${response.statusText}`);
+                log(`Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Fetch API exitoso! Películas: ${data.peliculas?.length || 0}`);
+                    showResult(`✅ Fetch API exitoso! Status: ${response.status}`);
+                } else {
+                    log(`❌ Fetch API falló: ${response.status}`);
+                    showResult(`❌ Fetch API falló. Status: ${response.status}`, false);
+                }
+            } catch (error) {
+                log(`❌ Error en Fetch API: ${error.message}`);
+                showResult(`❌ Error en Fetch API: ${error.message}`, false);
+            }
+        }
+
+        // Test automático al cargar
+        window.onload = function() {
+            log('Página cargada. Ejecuta los tests para diagnosticar el problema de CORS.');
+        };
+    </script>
+</body>
+</html> 

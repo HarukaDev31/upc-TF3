@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from typing import List, Dict, Any
 from pydantic import BaseModel, Field
-from services.global_services import get_mongodb_service, get_redis_service
+from services.global_services import get_mongodb_service, get_redis_service, get_algorithms_service
 from infrastructure.cache.redis_service import RedisService
 
 router = APIRouter(prefix="/api/v1/funciones", tags=["Funciones"])
@@ -71,10 +71,33 @@ async def obtener_asientos_funcion(funcion_id: str):
                     precio=precio
                 ))
         
-        # Estadísticas
+        # Estadísticas usando algoritmo recursivo si está disponible
+        algorithms_service = get_algorithms_service()
         total_asientos = len(filas) * asientos_por_fila
         ocupados = len(asientos_ocupados)
-        disponibles = total_asientos - ocupados
+        
+        # Usar algoritmo recursivo para contar asientos disponibles si está disponible
+        if algorithms_service:
+            print("🔄 Aplicando conteo recursivo de asientos...")
+            # Crear estructura de árbol para el algoritmo recursivo
+            sala_tree = {
+                "filas": [
+                    {
+                        "fila": fila,
+                        "asientos": [
+                            {"numero": f"{fila}{num}", "estado": "disponible" if f"{fila}{num}" not in asientos_ocupados else "ocupado"}
+                            for num in range(1, asientos_por_fila + 1)
+                        ]
+                    }
+                    for fila in filas
+                ]
+            }
+            
+            disponibles_recursivo = algorithms_service.contar_asientos_disponibles_recursivo(sala_tree)
+            print(f"✅ Conteo recursivo completado: {disponibles_recursivo} asientos disponibles")
+            disponibles = disponibles_recursivo
+        else:
+            disponibles = total_asientos - ocupados
         
         return MapaAsientosResponse(
             funcion_id=funcion_id,
@@ -83,7 +106,8 @@ async def obtener_asientos_funcion(funcion_id: str):
                 "total": total_asientos,
                 "ocupados": ocupados,
                 "disponibles": disponibles,
-                "porcentaje_ocupacion": round((ocupados / total_asientos) * 100, 2)
+                "porcentaje_ocupacion": round((ocupados / total_asientos) * 100, 2),
+                "algoritmo_conteo": "recursivo" if algorithms_service else "simple"
             }
         )
         

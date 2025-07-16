@@ -11,6 +11,7 @@ from domain.entities.transaccion import MetodoPago, EstadoTransaccion
 from use_cases.comprar_entrada_use_case import ComprarEntradaUseCase
 from controllers.usuarios_controller import get_current_user
 from services.email_service import email_service
+from services.global_services import get_algorithms_service
 
 router = APIRouter(prefix="/api/v1/transacciones", tags=["Transacciones"])
 
@@ -84,15 +85,60 @@ async def comprar_entrada(
 @router.get("/historial", response_model=HistorialComprasResponse)
 async def obtener_historial_compras(
     limit: int = 20,
+    ordenar_por_fecha: bool = True,
     current_user: dict = Depends(get_current_user)
 ):
-    """Obtener historial de compras del usuario"""
+    """Obtener historial de compras del usuario con ordenamiento opcional"""
     try:
         use_case = ComprarEntradaUseCase()
         historial = await use_case.obtener_historial_compras(
             usuario_id=current_user["sub"],
             limit=limit
         )
+        
+        # Aplicar algoritmo de ordenamiento si se solicita
+        algorithms_service = get_algorithms_service()
+        if ordenar_por_fecha and algorithms_service and historial:
+            print("🔄 Aplicando HeapSort para ordenar transacciones por fecha...")
+            
+            # Convertir a formato compatible con el algoritmo
+            transacciones_formato = []
+            for tx in historial:
+                if isinstance(tx, dict):
+                    transacciones_formato.append({
+                        "id": tx.get("id", ""),
+                        "fecha_transaccion": tx.get("fecha_creacion", ""),
+                        "monto": tx.get("total", 0),
+                        "estado": tx.get("estado", "")
+                    })
+                else:
+                    # Si es un objeto, extraer datos
+                    transacciones_formato.append({
+                        "id": getattr(tx, "id", ""),
+                        "fecha_transaccion": getattr(tx, "fecha_creacion", "").isoformat() if hasattr(tx, "fecha_creacion") else "",
+                        "monto": getattr(tx, "total", 0),
+                        "estado": getattr(tx, "estado", "")
+                    })
+            
+            # Aplicar HeapSort
+            transacciones_ordenadas = algorithms_service.heapsort_transacciones_fecha(transacciones_formato)
+            print(f"✅ Transacciones ordenadas por fecha usando HeapSort")
+            
+            # Reconstruir historial con el orden correcto
+            historial_ordenado = []
+            for tx_ordenada in transacciones_ordenadas:
+                # Encontrar la transacción original
+                for tx_original in historial:
+                    if isinstance(tx_original, dict):
+                        if tx_original.get("id") == tx_ordenada["id"]:
+                            historial_ordenado.append(tx_original)
+                            break
+                    else:
+                        if getattr(tx_original, "id", "") == tx_ordenada["id"]:
+                            historial_ordenado.append(tx_original)
+                            break
+            
+            historial = historial_ordenado
         
         return HistorialComprasResponse(
             transacciones=historial,
